@@ -51,9 +51,9 @@ const BumpState = struct {
         bump.next_size = @minimum(1024 * 1024 * 1024, bump.next_size);
 
         mark.range = bump.ranges.items.len - 1;
-        mark.index_in_range = size;
+        mark.index_in_range = len;
 
-        return slice[0..size];
+        return slice[0..len];
     }
 };
 
@@ -61,9 +61,7 @@ pub const Mark = struct {
     range: usize,
     index_in_range: usize,
 
-    const Self = @This();
-
-    const ZERO: Self = .{
+    const ZERO: @This() = .{
         .range = 0,
         .index_in_range = 0,
     };
@@ -138,6 +136,20 @@ pub const Temp = struct {
 
         // can do some incremental sorting here too at some point
         //                             - Albert Liu, Mar 31, 2022 Thu 02:45 EDT
+
+        // const temp = self.previous orelse self;
+        // const unused = bump.ranges.items[(temp.mark.range + 1)..];
+
+        // print("len: {} r: {}\n", .{ bump.ranges.items.len, temp.mark.range });
+        // for (bump.ranges.items) |range| {
+        //     print("len: {}\n", .{range.len});
+        // }
+
+        // std.sort.insertionSort([]u8, unused, {}, lessThan);
+    }
+
+    fn lessThan(_: void, left: []u8, right: []u8) bool {
+        return left.len < right.len;
     }
 
     pub fn allocator(self: *Self) Allocator {

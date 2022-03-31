@@ -41,6 +41,15 @@ pub fn main() anyerror!void {
         i += 1;
     }
 
+    i = 0;
+    while (i < 100) {
+        assert(data.items[i] == i);
+
+        i += 1;
+    }
+
+    std.debug.print("entering hello\n", .{});
+
     try hello(data.items);
 
     i = 0;
@@ -50,18 +59,18 @@ pub fn main() anyerror!void {
         i += 1;
     }
 
-    var bump = alloc.Bump.init(1024 * 1024 * 4, alloc.Global);
-    var bump_alloc = bump.allocator();
-    var data2 = ArrayList(u8).init(bump_alloc);
+    // var bump = alloc.Bump.init(1024 * 1024 * 4, alloc.Global);
+    // var bump_alloc = bump.allocator();
+    // var data2 = ArrayList(u8).init(bump_alloc);
 
-    i = 0;
-    while (i < 100) {
-        try data2.append(i);
+    // i = 0;
+    // while (i < 100) {
+    //     try data2.append(i);
 
-        i += 1;
-    }
+    //     i += 1;
+    // }
 
-    bump.deinit();
+    // bump.deinit();
 
     std.log.info("All your codebase are belong to us.", .{});
 }
