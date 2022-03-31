@@ -43,5 +43,12 @@ pub fn main() anyerror!void {
 
     try hello(data.items);
 
+    i = 0;
+    while (i < 100) {
+        assert(data.items[i] == i);
+
+        i += 1;
+    }
+
     std.log.info("All your codebase are belong to us.", .{});
 }
