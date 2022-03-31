@@ -1,5 +1,4 @@
 const std = @import("std");
-const print = std.debug.print;
 const mem = std.mem;
 const assert = std.debug.assert;
 const Allocator = mem.Allocator;
@@ -136,20 +135,6 @@ pub const Temp = struct {
 
         // can do some incremental sorting here too at some point
         //                             - Albert Liu, Mar 31, 2022 Thu 02:45 EDT
-
-        // const temp = self.previous orelse self;
-        // const unused = bump.ranges.items[(temp.mark.range + 1)..];
-
-        // print("len: {} r: {}\n", .{ bump.ranges.items.len, temp.mark.range });
-        // for (bump.ranges.items) |range| {
-        //     print("len: {}\n", .{range.len});
-        // }
-
-        // std.sort.insertionSort([]u8, unused, {}, lessThan);
-    }
-
-    fn lessThan(_: void, left: []u8, right: []u8) bool {
-        return left.len < right.len;
     }
 
     pub fn allocator(self: *Self) Allocator {
