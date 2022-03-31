@@ -10,7 +10,6 @@ const Storage = struct {
     data: ArrayList(u8),
 };
 
-const TempStorageInitialSize = 1024 * 1024 * 4;
 threadlocal var temporary_storage: Storage = .{
     .data = ArrayList(u8).init(Pages),
 };
