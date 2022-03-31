@@ -19,7 +19,7 @@ const TempStorageGlobal = struct {
 
 const TempStorageInitialSize = 1024 * 1024 * 4;
 threadlocal var temporary_storage: TempStorageGlobal = .{
-    .ranges = ArrayList([]u8).init(Pages),
+    .ranges = ArrayList([]u8).init(Global),
     .next_size = TempStorageInitialSize,
     .current = 0,
     .top_stack_reader = if (std.debug.runtime_safety) null else {},
@@ -70,7 +70,7 @@ pub const Temp = struct {
         const tmp = &temporary_storage;
 
         // Bruh what, why is this necessary
-        tmp.ranges.allocator = Pages;
+        tmp.ranges.allocator = Global;
 
         var new_len = len;
         if (len_align != 0) {
