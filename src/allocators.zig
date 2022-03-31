@@ -7,118 +7,158 @@ const ArrayList = std.ArrayList;
 
 const GlobalAlloc = std.heap.GeneralPurposeAllocator(.{});
 var GlobalAllocator: GlobalAlloc = .{};
+
 pub const Global = GlobalAllocator.allocator();
 pub const Pages = std.heap.page_allocator;
 
-const TempStorageGlobal = struct {
+const BumpState = struct {
     ranges: ArrayList([]u8),
     next_size: usize,
-    current: usize,
-    top_stack_reader: if (std.debug.runtime_safety) ?*Temp else void,
-};
-
-const TempStorageInitialSize = 1024 * 1024 * 4;
-threadlocal var temporary_storage: TempStorageGlobal = .{
-    .ranges = ArrayList([]u8).init(Global),
-    .next_size = TempStorageInitialSize,
-    .current = 0,
-    .top_stack_reader = if (std.debug.runtime_safety) null else {},
-};
-
-pub const Temp = struct {
-    range: usize,
-    index_in_range: usize,
-    previous: if (std.debug.runtime_safety) ?*Self else void,
 
     const Self = @This();
 
-    pub fn init() Self {
+    fn init(initial_size: usize, allocator: Allocator) Self {
         return .{
-            .range = 0,
-            .index_in_range = 0,
-            .previous = temporary_storage.top_stack_reader,
+            .ranges = ArrayList([]u8).init(allocator),
+            .next_size = initial_size,
         };
     }
 
-    pub fn deinit(self: *Self) void {
-        if (std.debug.runtime_safety) {
-            if (temporary_storage.top_stack_reader) |top| {
-                assert(top == self or top == self.previous);
-            }
+    fn allocate(bump: *Self, mark: *Mark, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
+        if (mark.range < bump.ranges.items.len) {
+            const range = bump.ranges.items[mark.range];
 
-            temporary_storage.top_stack_reader = self.previous;
-        }
-
-        // can do some incremental sorting here to at some point
-        //                             - Albert Liu, Mar 31, 2022 Thu 02:45 EDT
-    }
-
-    pub fn allocator(self: *Self) Allocator {
-        if (std.debug.runtime_safety) {
-            if (temporary_storage.top_stack_reader) |top| {
-                assert(top == self or top == self.previous);
-            }
-
-            temporary_storage.top_stack_reader = self;
-        }
-
-        return Allocator.init(self, Self.allocate, Self.resize, Self.free);
-    }
-
-    // the type passed isn't *really* a pointer, but meh
-    fn allocate(self: *Self, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        const tmp = &temporary_storage;
-
-        // Bruh what, why is this necessary
-        tmp.ranges.allocator = Global;
-
-        var new_len = len;
-        if (len_align != 0) {
-            new_len = mem.alignForward(len, len_align);
-        }
-
-        if (self.range < tmp.ranges.items.len) {
-            const range = tmp.ranges.items[self.range];
-
-            const addr = @ptrToInt(range.ptr) + self.index_in_range;
+            const addr = @ptrToInt(range.ptr) + mark.index_in_range;
             const adjusted_addr = mem.alignForward(addr, ptr_align);
-            const adjusted_index = self.index_in_range + (adjusted_addr - addr);
-            const new_end_index = adjusted_index + new_len;
+            const adjusted_index = mark.index_in_range + (adjusted_addr - addr);
+            const new_end_index = adjusted_index + len;
 
             if (new_end_index <= range.len) {
-                self.index_in_range = new_end_index;
+                mark.index_in_range = new_end_index;
 
                 return range[adjusted_index..new_end_index];
             }
         }
 
-        const size = @maximum(len, tmp.next_size);
+        const size = @maximum(len, bump.next_size);
 
-        const slice = try Pages.rawAlloc(size, ptr_align, len_align, ret_addr);
-        try tmp.ranges.append(slice);
+        const alloc = bump.ranges.allocator;
+        const slice = try alloc.rawAlloc(size, ptr_align, len_align, ret_addr);
+        try bump.ranges.append(slice);
 
         // grow the next arena, but keep it to at most 1GB please
-        tmp.next_size = size * 3 / 2;
-        tmp.next_size = @minimum(1024 * 1024 * 1024, tmp.next_size);
+        bump.next_size = size * 3 / 2;
+        bump.next_size = @minimum(1024 * 1024 * 1024, bump.next_size);
 
-        self.range = tmp.ranges.items.len - 1;
-        self.index_in_range = size;
+        mark.range = bump.ranges.items.len - 1;
+        mark.index_in_range = size;
 
         return slice[0..size];
     }
+};
 
-    fn resize(_: *Self, _: []u8, _: u29, len: usize, len_align: u29, _: usize) ?usize {
-        var new_len = len;
-        if (len_align != 0) {
-            new_len = mem.alignForward(len, len_align);
-        }
+pub const Mark = struct {
+    range: usize,
+    index_in_range: usize,
 
-        if (new_len <= len) {
-            return new_len;
-        }
+    const Self = @This();
 
-        return null;
+    const ZERO: Self = .{
+        .range = 0,
+        .index_in_range = 0,
+    };
+};
+
+pub const Bump = struct {
+    bump: BumpState,
+    mark: Mark,
+
+    const Self = @This();
+
+    pub fn init(initial_size: usize, alloc: Allocator) Self {
+        return .{
+            .bump = BumpState.init(initial_size, alloc),
+            .mark = Mark.ZERO,
+        };
     }
 
-    fn free(_: *Self, _: []u8, _: u29, _: usize) void {}
+    pub fn deinit(self: *Self) void {
+        const alloc = self.bump.ranges.allocator;
+        for (self.bump.ranges.items) |range| {
+            alloc.free(range);
+        }
+
+        self.bump.ranges.deinit();
+    }
+
+    pub fn allocator(self: *Self) Allocator {
+        const resize = Allocator.NoResize(Self).noResize;
+        const free = Allocator.NoOpFree(Self).noOpFree;
+
+        return Allocator.init(self, Self.allocate, resize, free);
+    }
+
+    fn allocate(self: *Self, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
+        return self.bump.allocate(&self.mark, len, ptr_align, len_align, ret_addr);
+    }
+};
+
+pub const Temp = struct {
+    mark: Mark,
+    previous: ?*Self,
+
+    const Self = @This();
+
+    const InitialSize = 1024 * 1024 * 4;
+
+    threadlocal var top: ?*Temp = null;
+    threadlocal var bump = BumpState.init(InitialSize, Global);
+
+    pub fn init() Self {
+        var mark = Mark.ZERO;
+
+        if (top) |t| {
+            mark = t.mark;
+        }
+
+        return .{
+            .mark = mark,
+            .previous = top,
+        };
+    }
+
+    pub fn deinit(self: *Self) void {
+        if (std.debug.runtime_safety) {
+            if (top) |t| {
+                assert(t == self or t == self.previous);
+            }
+        }
+
+        top = self.previous;
+
+        // can do some incremental sorting here too at some point
+        //                             - Albert Liu, Mar 31, 2022 Thu 02:45 EDT
+    }
+
+    pub fn allocator(self: *Self) Allocator {
+        if (std.debug.runtime_safety) {
+            if (top) |t| {
+                assert(t == self or t == self.previous);
+            }
+        }
+
+        top = self;
+
+        const resize = Allocator.NoResize(Self).noResize;
+        const free = Allocator.NoOpFree(Self).noOpFree;
+
+        return Allocator.init(self, Self.allocate, resize, free);
+    }
+
+    fn allocate(self: *Self, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
+        // Bruh what, why is this necessary
+        bump.ranges.allocator = Global;
+
+        return bump.allocate(&self.mark, len, ptr_align, len_align, ret_addr);
+    }
 };
