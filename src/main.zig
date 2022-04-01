@@ -34,7 +34,7 @@ pub fn main() anyerror!void {
 
     const temp = _temp.allocator();
 
-    if (gui.raw.igSmallButton("Hello")) {
+    if (gui.igSmallButton("Hello")) {
         std.debug.print("Hello world\n", .{});
     }
 
