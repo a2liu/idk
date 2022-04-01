@@ -15,12 +15,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.setTarget(target);
     exe.setBuildMode(mode);
 
-    // exe.linkLibCpp();
-    // exe.linkLibC();
-
-    // exe.linkSystemLibrary("c");
-    // exe.linkSystemLibrary("glfw");
-    // exe.linkSystemLibrary("epoxy");
+    exe.linkLibCpp();
 
     exe.addIncludeDir("src/gui/include");
     exe.addCSourceFiles(&.{
@@ -29,7 +24,6 @@ pub fn build(b: *std.build.Builder) void {
         "src/gui/imgui_widgets.cpp",
         "src/gui/imgui_tables.cpp",
         "src/gui/imgui_demo.cpp",
-
         "src/gui/cimgui.cpp",
     }, &.{
         "-fno-exceptions",
@@ -47,15 +41,4 @@ pub fn build(b: *std.build.Builder) void {
 
     const run_step = b.step("run", "Run the app");
     run_step.dependOn(&run_cmd.step);
-}
-
-// helper function to get SDK path on Mac
-fn macosFrameworksDir(b: *std.build.Builder) ![]u8 {
-    var str = try b.exec(&[_][]const u8{ "xcrun", "--show-sdk-path" });
-    const strip_newline = std.mem.lastIndexOf(u8, str, "\n");
-    if (strip_newline) |index| {
-        str = str[0..index];
-    }
-    const frameworks_dir = try std.mem.concat(b.allocator, u8, &[_][]const u8{ str, "/System/Library/Frameworks" });
-    return frameworks_dir;
 }
