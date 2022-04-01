@@ -14,6 +14,24 @@ pub fn build(b: *std.build.Builder) void {
     const exe = b.addExecutable("idk", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+
+    exe.linkLibC();
+    exe.linkLibCpp();
+
+    exe.addIncludeDir("src/gui/include");
+    exe.addCSourceFiles(&.{
+        "src/gui/imgui.cpp",
+        "src/gui/imgui_draw.cpp",
+        "src/gui/imgui_widgets.cpp",
+        "src/gui/imgui_tables.cpp",
+        "src/gui/imgui_demo.cpp",
+        "src/gui/cimgui.cpp",
+    }, &.{
+        "-fno-exceptions",
+        "-fno-rtti",
+        "-Wno-return-type-c-linkage",
+    });
+
     exe.install();
 
     const run_cmd = exe.run();

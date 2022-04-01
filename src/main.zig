@@ -2,6 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const ArrayList = std.ArrayList;
 const alloc = @import("allocators.zig");
+const gui = @import("gui/mod.zig");
 
 pub fn hello(previous: []u8) anyerror!void {
     var _temp = alloc.Temp.init();
@@ -32,6 +33,10 @@ pub fn main() anyerror!void {
     defer _temp.deinit();
 
     const temp = _temp.allocator();
+
+    if (gui.raw.igSmallButton("Hello")) {
+        std.debug.print("Hello world\n", .{});
+    }
 
     var data = ArrayList(u8).init(temp);
     var i: u8 = 0;
