@@ -1,6 +1,7 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
+const print = std.debug.print;
 pub const resources = @import("resources");
 pub const GraphicsContext = @import("graphics_context.zig").GraphicsContext;
 pub const Swapchain = @import("swapchain.zig").Swapchain;
@@ -122,6 +123,8 @@ pub fn main() !void {
         };
 
         if (state == .suboptimal) {
+            print("rip\n", .{});
+
             const size = try window.getSize();
             extent.width = @intCast(u32, size.width);
             extent.height = @intCast(u32, size.height);
