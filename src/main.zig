@@ -13,27 +13,6 @@ const GraphicsContext = render.GraphicsContext;
 const Swapchain = render.Swapchain;
 const Vertex = render.Vertex;
 
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-//
-
 const vertices = [_]Vertex{
     .{ .pos = .{ 0, -0.5 }, .color = .{ 1, 0, 0 } },
     .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0, 1, 0 } },
@@ -113,10 +92,6 @@ pub fn main() anyerror!void {
     );
     defer render.destroyCommandBuffers(&gc, pool, allocator, cmdbufs);
 
-    // if (gui.igSmallButton("Hello")) {
-    //     std.debug.print("Hello world\n", .{});
-    // }
-
     while (!window.shouldClose()) {
         const cmdbuf = cmdbufs[swapchain.image_index];
 
@@ -148,6 +123,10 @@ pub fn main() anyerror!void {
         }
 
         try glfw.pollEvents();
+
+        // if (gui.igSmallButton("Hello")) {
+        //     std.debug.print("Hello world\n", .{});
+        // }
     }
 
     try swapchain.waitForAllFences();
