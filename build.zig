@@ -43,6 +43,7 @@ pub fn build(b: *std.build.Builder) void {
         "src/gui/imgui_widgets.cpp",
         "src/gui/imgui_tables.cpp",
         "src/gui/imgui_demo.cpp",
+        "src/gui/imgui_impl_vulkan.cpp",
         "src/gui/cimgui.cpp",
     }, &.{
         "-fno-exceptions",

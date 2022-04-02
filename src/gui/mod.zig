@@ -1,13 +1,51 @@
 const glfw = @import("glfw");
+const vk = @import("vulkan");
+const render = @import("../render/mod.zig");
+
 const Key = glfw.Key;
 
+usingnamespace ig;
 const ig = @cImport({
     @cUndef("__cplusplus");
     @cDefine("CIMGUI_DEFINE_ENUMS_AND_STRUCTS", "1");
     @cInclude("cimgui.h");
+
+    @cDefine("IMGUI_IMPL_API", "");
+    @cDefine("NULL", "((void*) 0)");
+    @cInclude("imgui_impl_vulkan.h");
 });
 
-usingnamespace ig;
+pub fn init() !void {
+    var ctx = ig.igCreateContext(null);
+    ig.igSetCurrentContext(ctx);
+
+    // Setup back-end capabilities flags
+    var io = ig.igGetIO();
+    io.*.BackendRendererName = "imgui_impl_vulkan";
+    // Sensible memory-friendly initial mouse position.
+    io.*.MousePos = .{ .x = 0, .y = 0 };
+
+    // io.*.ConfigFlags |= ig.ImGuiConfigFlags_DockingEnable;
+    // io.*.ConfigFlags |= ig.ImGuiConfigFlags_ViewportsEnable;
+    // io.*.ConfigDockingWithShift = true;
+
+    inline for (key_mappings) |mapping| {
+        const target = mapping.@"0";
+        const enum_value = mapping.@"1";
+
+        io.*.KeyMap[target] = @enumToInt(enum_value);
+    }
+
+    var w: i32 = undefined;
+    var h: i32 = undefined;
+    var bytes_per_pixel: i32 = undefined;
+    var pixels: [*c]u8 = undefined;
+
+    ig.ImFontAtlas_GetTexDataAsRGBA32(io.*.Fonts, &pixels, &w, &h, &bytes_per_pixel);
+
+    // const font_tex = gfx.Texture.initWithData(u8, w, h, pixels[0..@intCast(usize, w * h * bytes_per_pixel)]);
+    // ig.igImFontAtlas_SetTexID(io.Fonts, font_tex.imTextureID());
+}
 
 const key_mappings = .{
     .{ ig.ImGuiKey_Tab, Key.tab },
@@ -77,21 +115,3 @@ const key_mappings = .{
     .{ ig.ImGuiKey_Keypad8, Key.kp_8 },
     .{ ig.ImGuiKey_Keypad9, Key.kp_9 },
 };
-
-pub fn init() !void {
-    var ctx = ig.igCreateContext(null);
-    ig.igSetCurrentContext(ctx);
-
-    // Setup back-end capabilities flags
-    var io = ig.igGetIO();
-    io.*.BackendRendererName = "imgui_impl_vulkan";
-    // Sensible memory-friendly initial mouse position.
-    io.*.MousePos = .{ .x = 0, .y = 0 };
-
-    inline for (key_mappings) |mapping| {
-        const target = mapping.@"0";
-        const enum_value = mapping.@"1";
-
-        io.*.KeyMap[target] = @enumToInt(enum_value);
-    }
-}

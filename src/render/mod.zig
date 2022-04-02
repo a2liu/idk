@@ -1,8 +1,11 @@
 const std = @import("std");
 const vk = @import("vulkan");
 const glfw = @import("glfw");
-const print = std.debug.print;
 pub const resources = @import("resources");
+
+const print = std.debug.print;
+const cast = std.math.cast;
+
 pub const GraphicsContext = @import("graphics_context.zig").GraphicsContext;
 pub const Swapchain = @import("swapchain.zig").Swapchain;
 const Allocator = std.mem.Allocator;
@@ -35,136 +38,21 @@ pub const Vertex = struct {
     color: [3]f32,
 };
 
-const vertices = [_]Vertex{
-    .{ .pos = .{ 0, -0.5 }, .color = .{ 1, 0, 0 } },
-    .{ .pos = .{ 0.5, 0.5 }, .color = .{ 0, 1, 0 } },
-    .{ .pos = .{ -0.5, 0.5 }, .color = .{ 0, 0, 1 } },
-};
-
-pub fn main() !void {
-    try glfw.init(.{});
-    defer glfw.terminate();
-
-    var extent = vk.Extent2D{ .width = 800, .height = 600 };
-
-    const window = try glfw.Window.create(extent.width, extent.height, app_name, null, null, .{
-        .client_api = .no_api,
-    });
-    defer window.destroy();
-
-    const allocator = std.heap.page_allocator;
-
-    const gc = try GraphicsContext.init(allocator, app_name, window);
-    defer gc.deinit();
-
-    std.debug.print("Using device: {s}\n", .{gc.deviceName()});
-
-    var swapchain = try Swapchain.init(&gc, allocator, extent);
-    defer swapchain.deinit();
-
-    const pipeline_layout = try gc.vkd.createPipelineLayout(gc.dev, &.{
-        .flags = .{},
-        .set_layout_count = 0,
-        .p_set_layouts = undefined,
-        .push_constant_range_count = 0,
-        .p_push_constant_ranges = undefined,
-    }, null);
-    defer gc.vkd.destroyPipelineLayout(gc.dev, pipeline_layout, null);
-
-    const render_pass = try createRenderPass(&gc, swapchain);
-    defer gc.vkd.destroyRenderPass(gc.dev, render_pass, null);
-
-    var pipeline = try createPipeline(&gc, pipeline_layout, render_pass);
-    defer gc.vkd.destroyPipeline(gc.dev, pipeline, null);
-
-    var framebuffers = try createFramebuffers(&gc, allocator, render_pass, swapchain);
-    defer destroyFramebuffers(&gc, allocator, framebuffers);
-
-    const pool = try gc.vkd.createCommandPool(gc.dev, &.{
-        .flags = .{},
-        .queue_family_index = gc.graphics_queue.family,
-    }, null);
-    defer gc.vkd.destroyCommandPool(gc.dev, pool, null);
-
-    const buffer = try gc.vkd.createBuffer(gc.dev, &.{
-        .flags = .{},
-        .size = @sizeOf(@TypeOf(vertices)),
-        .usage = .{ .transfer_dst_bit = true, .vertex_buffer_bit = true },
-        .sharing_mode = .exclusive,
-        .queue_family_index_count = 0,
-        .p_queue_family_indices = undefined,
-    }, null);
-    defer gc.vkd.destroyBuffer(gc.dev, buffer, null);
-    const mem_reqs = gc.vkd.getBufferMemoryRequirements(gc.dev, buffer);
-    const memory = try gc.allocate(mem_reqs, .{ .device_local_bit = true });
-    defer gc.vkd.freeMemory(gc.dev, memory, null);
-    try gc.vkd.bindBufferMemory(gc.dev, buffer, memory, 0);
-
-    try uploadVertices(&gc, pool, buffer);
-
-    var cmdbufs = try createCommandBuffers(
-        &gc,
-        pool,
-        allocator,
-        buffer,
-        swapchain.extent,
-        render_pass,
-        pipeline,
-        framebuffers,
-    );
-    defer destroyCommandBuffers(&gc, pool, allocator, cmdbufs);
-
-    while (!window.shouldClose()) {
-        const cmdbuf = cmdbufs[swapchain.image_index];
-
-        const state = swapchain.present(cmdbuf) catch |err| switch (err) {
-            error.OutOfDateKHR => Swapchain.PresentState.suboptimal,
-            else => |narrow| return narrow,
-        };
-
-        if (state == .suboptimal) {
-            print("rip\n", .{});
-
-            const size = try window.getSize();
-            extent.width = @intCast(u32, size.width);
-            extent.height = @intCast(u32, size.height);
-            try swapchain.recreate(extent);
-
-            destroyFramebuffers(&gc, allocator, framebuffers);
-            framebuffers = try createFramebuffers(&gc, allocator, render_pass, swapchain);
-
-            destroyCommandBuffers(&gc, pool, allocator, cmdbufs);
-            cmdbufs = try createCommandBuffers(
-                &gc,
-                pool,
-                allocator,
-                buffer,
-                swapchain.extent,
-                render_pass,
-                pipeline,
-                framebuffers,
-            );
-        }
-
-        try glfw.pollEvents();
-    }
-
-    try swapchain.waitForAllFences();
-}
-
-pub fn uploadVertices(gc: *const GraphicsContext, pool: vk.CommandPool, buffer: vk.Buffer) !void {
+pub fn uploadVertices(gc: *const GraphicsContext, pool: vk.CommandPool, buffer: vk.Buffer, vertices: []const Vertex) !void {
     const staging_buffer = try gc.vkd.createBuffer(gc.dev, &.{
         .flags = .{},
-        .size = @sizeOf(@TypeOf(vertices)),
+        .size = @sizeOf(Vertex) * vertices.len,
         .usage = .{ .transfer_src_bit = true },
         .sharing_mode = .exclusive,
         .queue_family_index_count = 0,
         .p_queue_family_indices = undefined,
     }, null);
     defer gc.vkd.destroyBuffer(gc.dev, staging_buffer, null);
+
     const mem_reqs = gc.vkd.getBufferMemoryRequirements(gc.dev, staging_buffer);
     const staging_memory = try gc.allocate(mem_reqs, .{ .host_visible_bit = true, .host_coherent_bit = true });
     defer gc.vkd.freeMemory(gc.dev, staging_memory, null);
+
     try gc.vkd.bindBufferMemory(gc.dev, staging_buffer, staging_memory, 0);
 
     {
@@ -177,7 +65,7 @@ pub fn uploadVertices(gc: *const GraphicsContext, pool: vk.CommandPool, buffer: 
         }
     }
 
-    try copyBuffer(gc, pool, buffer, staging_buffer, @sizeOf(@TypeOf(vertices)));
+    try copyBuffer(gc, pool, buffer, staging_buffer, @sizeOf(Vertex) * vertices.len);
 }
 
 pub fn copyBuffer(gc: *const GraphicsContext, pool: vk.CommandPool, dst: vk.Buffer, src: vk.Buffer, size: vk.DeviceSize) !void {
@@ -225,9 +113,12 @@ pub fn createCommandBuffers(
     render_pass: vk.RenderPass,
     pipeline: vk.Pipeline,
     framebuffers: []vk.Framebuffer,
+    vertices: []const Vertex,
 ) ![]vk.CommandBuffer {
     const cmdbufs = try allocator.alloc(vk.CommandBuffer, framebuffers.len);
     errdefer allocator.free(cmdbufs);
+
+    const vertex_len = cast(u32, vertices.len) catch @panic("rip");
 
     try gc.vkd.allocateCommandBuffers(gc.dev, &.{
         .command_pool = pool,
@@ -281,7 +172,7 @@ pub fn createCommandBuffers(
         gc.vkd.cmdBindPipeline(cmdbuf, .graphics, pipeline);
         const offset = [_]vk.DeviceSize{0};
         gc.vkd.cmdBindVertexBuffers(cmdbuf, 0, 1, @ptrCast([*]const vk.Buffer, &buffer), &offset);
-        gc.vkd.cmdDraw(cmdbuf, vertices.len, 1, 0, 0);
+        gc.vkd.cmdDraw(cmdbuf, vertex_len, 1, 0, 0);
 
         gc.vkd.cmdEndRenderPass(cmdbuf);
         try gc.vkd.endCommandBuffer(cmdbuf);
