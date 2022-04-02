@@ -65,6 +65,28 @@ pub fn init() !void {
         .{ ig.ImGuiKey_X, Key.x },
         .{ ig.ImGuiKey_Y, Key.y },
         .{ ig.ImGuiKey_Z, Key.z },
+
+        .{ ig.ImGuiKey_0, Key.zero },
+        .{ ig.ImGuiKey_1, Key.one },
+        .{ ig.ImGuiKey_2, Key.two },
+        .{ ig.ImGuiKey_3, Key.three },
+        .{ ig.ImGuiKey_4, Key.four },
+        .{ ig.ImGuiKey_5, Key.five },
+        .{ ig.ImGuiKey_6, Key.six },
+        .{ ig.ImGuiKey_7, Key.seven },
+        .{ ig.ImGuiKey_8, Key.eight },
+        .{ ig.ImGuiKey_9, Key.nine },
+
+        .{ ig.ImGuiKey_Keypad0, Key.kp_0 },
+        .{ ig.ImGuiKey_Keypad1, Key.kp_1 },
+        .{ ig.ImGuiKey_Keypad2, Key.kp_2 },
+        .{ ig.ImGuiKey_Keypad3, Key.kp_3 },
+        .{ ig.ImGuiKey_Keypad4, Key.kp_4 },
+        .{ ig.ImGuiKey_Keypad5, Key.kp_5 },
+        .{ ig.ImGuiKey_Keypad6, Key.kp_6 },
+        .{ ig.ImGuiKey_Keypad7, Key.kp_7 },
+        .{ ig.ImGuiKey_Keypad8, Key.kp_8 },
+        .{ ig.ImGuiKey_Keypad9, Key.kp_9 },
     };
 
     inline for (key_mappings) |mapping| {
