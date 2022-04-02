@@ -1,17 +1,24 @@
 const std = @import("std");
-const assert = std.debug.assert;
-const ArrayList = std.ArrayList;
-const Allocator = std.mem.Allocator;
 const vk = @import("vulkan");
 const glfw = @import("glfw");
 const alloc = @import("allocators.zig");
 const gui = @import("gui/mod.zig");
 const render = @import("render/mod.zig");
 
+const ArrayList = std.ArrayList;
+const Allocator = std.mem.Allocator;
+const assert = std.debug.assert;
+const print = std.debug.print;
+
 const app_name = render.app_name;
 const GraphicsContext = render.GraphicsContext;
 const Swapchain = render.Swapchain;
 const Vertex = render.Vertex;
+
+const createFramebuffers = render.createFramebuffers;
+const destroyFramebuffers = render.destroyFramebuffers;
+const destroyCommandBuffers = render.destroyCommandBuffers;
+const createCommandBuffers = render.createCommandBuffers;
 
 const vertices = [_]Vertex{
     .{ .pos = .{ 0, -0.5 }, .color = .{ 1, 0, 0 } },
@@ -55,8 +62,8 @@ pub fn main() anyerror!void {
     var pipeline = try render.createPipeline(&gc, pipeline_layout, render_pass);
     defer gc.vkd.destroyPipeline(gc.dev, pipeline, null);
 
-    var framebuffers = try render.createFramebuffers(&gc, allocator, render_pass, swapchain);
-    defer render.destroyFramebuffers(&gc, allocator, framebuffers);
+    var framebuffers = try createFramebuffers(&gc, allocator, render_pass, swapchain);
+    defer destroyFramebuffers(&gc, allocator, framebuffers);
 
     const pool = try gc.vkd.createCommandPool(gc.dev, &.{
         .flags = .{},
@@ -73,9 +80,11 @@ pub fn main() anyerror!void {
         .p_queue_family_indices = undefined,
     }, null);
     defer gc.vkd.destroyBuffer(gc.dev, buffer, null);
+
     const mem_reqs = gc.vkd.getBufferMemoryRequirements(gc.dev, buffer);
     const memory = try gc.allocate(mem_reqs, .{ .device_local_bit = true });
     defer gc.vkd.freeMemory(gc.dev, memory, null);
+
     try gc.vkd.bindBufferMemory(gc.dev, buffer, memory, 0);
 
     try render.uploadVertices(&gc, pool, buffer);
@@ -96,8 +105,12 @@ pub fn main() anyerror!void {
         const cmdbuf = cmdbufs[swapchain.image_index];
 
         const state = swapchain.present(cmdbuf) catch |err| switch (err) {
-            error.OutOfDateKHR => Swapchain.PresentState.suboptimal,
-            else => |narrow| return narrow,
+            error.OutOfDateKHR => blk: {
+                break :blk Swapchain.PresentState.suboptimal;
+            },
+            else => |narrow| {
+                return narrow;
+            },
         };
 
         if (state == .suboptimal) {
@@ -106,11 +119,11 @@ pub fn main() anyerror!void {
             extent.height = @intCast(u32, size.height);
             try swapchain.recreate(extent);
 
-            render.destroyFramebuffers(&gc, allocator, framebuffers);
-            framebuffers = try render.createFramebuffers(&gc, allocator, render_pass, swapchain);
+            destroyFramebuffers(&gc, allocator, framebuffers);
+            framebuffers = try createFramebuffers(&gc, allocator, render_pass, swapchain);
 
-            render.destroyCommandBuffers(&gc, pool, allocator, cmdbufs);
-            cmdbufs = try render.createCommandBuffers(
+            destroyCommandBuffers(&gc, pool, allocator, cmdbufs);
+            cmdbufs = try createCommandBuffers(
                 &gc,
                 pool,
                 allocator,
