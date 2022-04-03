@@ -30,7 +30,7 @@ pub fn build(b: *std.build.Builder) void {
     glfw.link(b, exe, .{});
 
     // shader resources, to be compiled using glslc
-    const res = zigvulkan.ResourceGenStep.init(b, "render_resources.zig");
+    const res = zigvulkan.ResourceGenStep.init(b, "shaders.zig");
     res.addShader("triangle_vert", "src/render/shader.vert");
     res.addShader("triangle_frag", "src/render/shader.frag");
     exe.addPackage(res.package);
