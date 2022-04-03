@@ -38,16 +38,16 @@ pub fn build(b: *std.build.Builder) void {
     exe.linkLibCpp();
     exe.linkSystemLibrary("vulkan");
 
-    exe.addIncludeDir("src/gui/include");
+    exe.addIncludeDir("libs/imgui/include");
     exe.addCSourceFiles(&.{
-        "src/gui/cimgui.cpp",
-        "src/gui/imgui.cpp",
-        "src/gui/imgui_draw.cpp",
-        "src/gui/imgui_widgets.cpp",
-        "src/gui/imgui_tables.cpp",
-        "src/gui/imgui_demo.cpp",
-        "src/gui/imgui_impl_render.cpp",
-        "src/gui/imgui_impl_platform.cpp",
+        "libs/imgui/cimgui.cpp",
+        "libs/imgui/imgui.cpp",
+        "libs/imgui/imgui_draw.cpp",
+        "libs/imgui/imgui_widgets.cpp",
+        "libs/imgui/imgui_tables.cpp",
+        "libs/imgui/imgui_demo.cpp",
+        "libs/imgui/imgui_impl_render.cpp",
+        "libs/imgui/imgui_impl_platform.cpp",
 
         "src/imgui_impl.cpp",
     }, &.{
