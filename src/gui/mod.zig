@@ -12,7 +12,7 @@ const ig = @cImport({
 
     @cDefine("IMGUI_IMPL_API", "");
     @cDefine("NULL", "((void*) 0)");
-    @cInclude("imgui_impl_vulkan.h");
+    @cInclude("imgui_impl_render.h");
 });
 
 pub fn init(extent: vk.Extent2D) !void {
@@ -21,7 +21,6 @@ pub fn init(extent: vk.Extent2D) !void {
 
     // Setup back-end capabilities flags
     var io = ig.igGetIO();
-    io.*.BackendRendererName = "imgui_impl_vulkan";
     io.*.IniFilename = null;
 
     // Sensible memory-friendly initial mouse position.
