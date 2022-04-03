@@ -22,8 +22,8 @@ pub fn build(b: *std.build.Builder) void {
 
     // TODO not currently used right now
     // vulkan-zig: Create a step that generates vk.zig (stored in zig-cache) from the provided vulkan registry.
-    const gen = vkgen.VkGenerateStep.init(b, "libs/vulkan-zig/examples/vk.xml", "vk.zig");
-    exe.addPackage(gen.package);
+    // const gen = vkgen.VkGenerateStep.init(b, "libs/vulkan-zig/examples/vk.xml", "vk.zig");
+    // exe.addPackage(gen.package);
 
     // mach-glfw
     exe.addPackagePath("glfw", "libs/mach-glfw/src/main.zig");
