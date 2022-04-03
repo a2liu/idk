@@ -30,11 +30,11 @@ pub fn main() anyerror!void {
     try glfw.init(.{});
     defer glfw.terminate();
 
-    try gui.init();
+    var extent = vk.Extent2D{ .width = 800, .height = 600 };
+
+    try gui.init(extent);
 
     const vertices: []const Vertex = vertex_data[0..vertex_data.len];
-
-    var extent = vk.Extent2D{ .width = 800, .height = 600 };
 
     const window = try glfw.Window.create(extent.width, extent.height, app_name, null, null, .{
         .client_api = .no_api,
@@ -143,12 +143,39 @@ pub fn main() anyerror!void {
             );
         }
 
-        // Rendering
-        // gui.igNewFrame();
-        // gui.igRender();
+        // Start next GUI frame
+        gui.igNewFrame();
+
+        // Build the GUI
+
+        // https://github.com/ocornut/imgui/blob/c71a50deb5ddf1ea386b91e60fa2e4a26d080074/imgui.h#L325
+        _ = gui.igBegin("Hello world!", null, 0);
+        gui.igEnd();
+
+        // Render the GUI
+        gui.igRender();
 
         const draw_data = gui.igGetDrawData();
         _ = draw_data;
+
+        // Avoid rendering when minimized, scale coordinates for retina displays (screen coordinates != framebuffer coordinates)
+        render: {
+            const dims = draw_data.*.DisplaySize;
+            const fb_scale = draw_data.*.FramebufferScale;
+            const fb_width = @floatToInt(i32, dims.x * fb_scale.x);
+            const fb_height = @floatToInt(i32, dims.y * fb_scale.y);
+
+            if (fb_width <= 0 or fb_height <= 0) {
+                break :render;
+            }
+
+            const vertex_count = draw_data.*.TotalVtxCount;
+            const vertex_size = vertex_count * @sizeOf(gui.ImDrawVert);
+            const index_size = vertex_count * @sizeOf(gui.ImDrawIdx);
+
+            _ = vertex_size;
+            _ = index_size;
+        }
 
         // const is_minimized = (draw_data.*.DisplaySize.x <= 0.0 or draw_data.*.DisplaySize.y <= 0.0);
         // _ = is_minimized;

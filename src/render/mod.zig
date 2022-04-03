@@ -38,6 +38,11 @@ pub const Vertex = struct {
     color: [3]f32,
 };
 
+pub fn resizeBuffer(gc: *const GraphicsContext, previous: vk.Buffer) vk.Buffer {
+    _ = gc;
+    _ = previous;
+}
+
 pub fn uploadVertices(gc: *const GraphicsContext, pool: vk.CommandPool, buffer: vk.Buffer, vertices: []const Vertex) !void {
     const staging_buffer = try gc.vkd.createBuffer(gc.dev, &.{
         .flags = .{},

@@ -15,7 +15,7 @@ const ig = @cImport({
     @cInclude("imgui_impl_vulkan.h");
 });
 
-pub fn init() !void {
+pub fn init(extent: vk.Extent2D) !void {
     var ctx = ig.igCreateContext(null);
     ig.igSetCurrentContext(ctx);
 
@@ -24,6 +24,10 @@ pub fn init() !void {
     io.*.BackendRendererName = "imgui_impl_vulkan";
     // Sensible memory-friendly initial mouse position.
     io.*.MousePos = .{ .x = 0, .y = 0 };
+    io.*.DisplaySize = ig.ImVec2{
+        .x = @intToFloat(f32, extent.width),
+        .y = @intToFloat(f32, extent.height),
+    };
 
     // io.*.ConfigFlags |= ig.ImGuiConfigFlags_DockingEnable;
     // io.*.ConfigFlags |= ig.ImGuiConfigFlags_ViewportsEnable;
