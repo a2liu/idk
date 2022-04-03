@@ -22,6 +22,8 @@ pub fn init(extent: vk.Extent2D) !void {
     // Setup back-end capabilities flags
     var io = ig.igGetIO();
     io.*.BackendRendererName = "imgui_impl_vulkan";
+    io.*.IniFilename = null;
+
     // Sensible memory-friendly initial mouse position.
     io.*.MousePos = .{ .x = 0, .y = 0 };
     io.*.DisplaySize = ig.ImVec2{
