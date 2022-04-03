@@ -36,7 +36,14 @@
 // Read comments in imgui_impl_vulkan.h.
 
 #pragma once
-#include "imgui.h" // IMGUI_IMPL_API
+
+#ifdef __cplusplus
+#include "imgui.h"
+#undef IMGUI_IMPL_API
+#define IMGUI_IMPL_API extern "C"
+#else
+#define IMGUI_IMPL_API
+#endif
 
 // [Configuration] in order to use a custom Vulkan function loader:
 // (1) You'll need to disable default Vulkan function prototypes.
@@ -60,7 +67,7 @@
 
 // Initialization data, for ImGui_ImplVulkan_Init()
 // [Please zero-clear before use!]
-struct ImGui_ImplVulkan_InitInfo {
+typedef struct ImGui_ImplVulkan_InitInfo {
   VkInstance Instance;
   VkPhysicalDevice PhysicalDevice;
   VkDevice Device;
@@ -75,7 +82,7 @@ struct ImGui_ImplVulkan_InitInfo {
                                      // to VK_SAMPLE_COUNT_1_BIT)
   const VkAllocationCallbacks *Allocator;
   void (*CheckVkResultFn)(VkResult err);
-};
+} ImGui_ImplVulkan_InitInfo;
 
 // Called by user code
 IMGUI_IMPL_API bool ImGui_ImplVulkan_Init(ImGui_ImplVulkan_InitInfo *info,
@@ -85,7 +92,7 @@ IMGUI_IMPL_API void ImGui_ImplVulkan_NewFrame();
 IMGUI_IMPL_API void
 ImGui_ImplVulkan_RenderDrawData(ImDrawData *draw_data,
                                 VkCommandBuffer command_buffer,
-                                VkPipeline pipeline = VK_NULL_HANDLE);
+                                VkPipeline pipeline); // = VK_NULL_HANDLE);
 IMGUI_IMPL_API bool
 ImGui_ImplVulkan_CreateFontsTexture(VkCommandBuffer command_buffer);
 IMGUI_IMPL_API void ImGui_ImplVulkan_DestroyFontUploadObjects();
@@ -105,31 +112,32 @@ IMGUI_IMPL_API VkDescriptorSet ImGui_ImplVulkan_AddTexture(
 IMGUI_IMPL_API bool ImGui_ImplVulkan_LoadFunctions(
     PFN_vkVoidFunction (*loader_func)(const char *function_name,
                                       void *user_data),
-    void *user_data = NULL);
+    void *user_data); // = NULL);
 
 //-------------------------------------------------------------------------
 // Internal / Miscellaneous Vulkan Helpers
-// (Used by example's main.cpp. Used by multi-viewport features. PROBABLY NOT
-// used by your own engine/app.)
+// (Used by example's main.cpp. Used by multi-viewport features. PROBABLY
+// NOT used by your own engine/app.)
 //-------------------------------------------------------------------------
 // You probably do NOT need to use or care about those functions.
 // Those functions only exist because:
-//   1) they facilitate the readability and maintenance of the multiple main.cpp
-//   examples files. 2) the upcoming multi-viewport feature will need them
-//   internally.
-// Generally we avoid exposing any kind of superfluous high-level helpers in the
-// backends, but it is too much code to duplicate everywhere so we exceptionally
-// expose them.
+//   1) they facilitate the readability and maintenance of the multiple
+//   main.cpp examples files. 2) the upcoming multi-viewport feature will
+//   need them internally.
+// Generally we avoid exposing any kind of superfluous high-level helpers in
+// the backends, but it is too much code to duplicate everywhere so we
+// exceptionally expose them.
 //
-// Your engine/app will likely _already_ have code to setup all that stuff (swap
-// chain, render pass, frame buffers, etc.). You may read this code to learn
-// about Vulkan, but it is recommended you use you own custom tailored code to
-// do equivalent work. (The ImGui_ImplVulkanH_XXX functions do not interact with
-// any of the state used by the regular ImGui_ImplVulkan_XXX functions)
+// Your engine/app will likely _already_ have code to setup all that stuff
+// (swap chain, render pass, frame buffers, etc.). You may read this code to
+// learn about Vulkan, but it is recommended you use you own custom tailored
+// code to do equivalent work. (The ImGui_ImplVulkanH_XXX functions do not
+// interact with any of the state used by the regular ImGui_ImplVulkan_XXX
+// functions)
 //-------------------------------------------------------------------------
 
-struct ImGui_ImplVulkanH_Frame;
-struct ImGui_ImplVulkanH_Window;
+typedef struct ImGui_ImplVulkanH_Frame ImGui_ImplVulkanH_Frame;
+typedef struct ImGui_ImplVulkanH_Window ImGui_ImplVulkanH_Window;
 
 // Helpers
 IMGUI_IMPL_API void ImGui_ImplVulkanH_CreateOrResizeWindow(
@@ -163,11 +171,12 @@ struct ImGui_ImplVulkanH_Frame {
   VkFramebuffer Framebuffer;
 };
 
-struct ImGui_ImplVulkanH_FrameSemaphores {
+typedef struct ImGui_ImplVulkanH_FrameSemaphores {
   VkSemaphore ImageAcquiredSemaphore;
   VkSemaphore RenderCompleteSemaphore;
-};
+} ImGui_ImplVulkanH_FrameSemaphores;
 
+#ifdef __cplusplus
 // Helper structure to hold the data needed by one rendering context into one OS
 // window (Used by example's main.cpp. Used by multi-viewport features. Probably
 // NOT used by your own engine/app.)
@@ -199,3 +208,4 @@ struct ImGui_ImplVulkanH_Window {
     ClearEnable = true;
   }
 };
+#endif
