@@ -144,12 +144,12 @@ pub const GraphicsContext = struct {
         self.vki.destroyInstance(self.instance, null);
     }
 
-    pub fn deviceName(self: GraphicsContext) []const u8 {
+    pub fn deviceName(self: *const GraphicsContext) []const u8 {
         const len = std.mem.indexOfScalar(u8, &self.props.device_name, 0).?;
         return self.props.device_name[0..len];
     }
 
-    pub fn findMemoryTypeIndex(self: GraphicsContext, memory_type_bits: u32, flags: vk.MemoryPropertyFlags) !u32 {
+    pub fn findMemoryTypeIndex(self: *const GraphicsContext, memory_type_bits: u32, flags: vk.MemoryPropertyFlags) !u32 {
         for (self.mem_props.memory_types[0..self.mem_props.memory_type_count]) |mem_type, i| {
             if (memory_type_bits & (@as(u32, 1) << @truncate(u5, i)) != 0 and mem_type.property_flags.contains(flags)) {
                 return @truncate(u32, i);
@@ -159,7 +159,7 @@ pub const GraphicsContext = struct {
         return error.NoSuitableMemoryType;
     }
 
-    pub fn allocate(self: GraphicsContext, requirements: vk.MemoryRequirements, flags: vk.MemoryPropertyFlags) !vk.DeviceMemory {
+    pub fn allocate(self: *const GraphicsContext, requirements: vk.MemoryRequirements, flags: vk.MemoryPropertyFlags) !vk.DeviceMemory {
         return try self.vkd.allocateMemory(self.dev, &.{
             .allocation_size = requirements.size,
             .memory_type_index = try self.findMemoryTypeIndex(requirements.memory_type_bits, flags),

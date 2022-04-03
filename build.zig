@@ -20,6 +20,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.setBuildMode(mode);
     exe.install();
 
+    // TODO not currently used right now
     // vulkan-zig: Create a step that generates vk.zig (stored in zig-cache) from the provided vulkan registry.
     const gen = vkgen.VkGenerateStep.init(b, "libs/vulkan-zig/examples/vk.xml", "vk.zig");
     exe.addPackage(gen.package);
@@ -35,16 +36,20 @@ pub fn build(b: *std.build.Builder) void {
     exe.addPackage(res.package);
 
     exe.linkLibCpp();
+    exe.linkSystemLibrary("vulkan");
 
     exe.addIncludeDir("src/gui/include");
     exe.addCSourceFiles(&.{
+        "src/gui/cimgui.cpp",
         "src/gui/imgui.cpp",
         "src/gui/imgui_draw.cpp",
         "src/gui/imgui_widgets.cpp",
         "src/gui/imgui_tables.cpp",
         "src/gui/imgui_demo.cpp",
-        "src/gui/imgui_impl_vulkan.cpp",
-        "src/gui/cimgui.cpp",
+        "src/gui/imgui_impl_render.cpp",
+        "src/gui/imgui_impl_platform.cpp",
+
+        "src/imgui_impl.cpp",
     }, &.{
         "-fno-exceptions",
         "-fno-rtti",
