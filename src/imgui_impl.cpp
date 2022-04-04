@@ -409,11 +409,6 @@ void cpp_resize_swapchain(GLFWwindow *window) {
   }
 }
 
-void cpp_new_frame(void) {
-  ImGui_ImplVulkan_NewFrame();
-  ImGui_ImplGlfw_NewFrame();
-}
-
 bool cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
   ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
 

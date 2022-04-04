@@ -36,8 +36,8 @@
 #define IMGUI_IMPL_API
 #endif
 
-struct GLFWwindow;
-struct GLFWmonitor;
+typedef struct GLFWwindow GLFWwindow;
+typedef struct GLFWmonitor GLFWmonitor;
 
 IMGUI_IMPL_API bool ImGui_ImplGlfw_InitForOpenGL(GLFWwindow *window,
                                                  bool install_callbacks);

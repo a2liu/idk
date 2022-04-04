@@ -64,7 +64,8 @@ pub fn main() !void {
             c.cpp_resize_swapchain(handle);
         }
 
-        c.cpp_new_frame();
+        c.ImGui_ImplVulkan_NewFrame();
+        c.ImGui_ImplGlfw_NewFrame();
         c.igNewFrame();
 
         // 1. Show the big demo window (Most of the sample code is in
