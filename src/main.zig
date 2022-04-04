@@ -125,7 +125,7 @@ pub fn main() !void {
             const pivot = .{ .x = 0, .y = 0 };
             const point = .{ .x = 200, .y = 200 };
             c.igSetNextWindowPos(point, c.ImGuiCond_FirstUseEver, pivot);
-            todoApp(&open_apps.todo);
+            try todoApp(&open_apps.todo);
         }
 
         c.igRender();
