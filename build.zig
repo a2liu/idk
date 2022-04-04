@@ -55,6 +55,8 @@ pub fn build(b: *std.build.Builder) void {
         "-fno-exceptions",
         "-fno-rtti",
         "-Wno-return-type-c-linkage",
+        "-nostdlib",
+        "-nostdlib++",
     });
 
     const run_cmd = exe.run();
