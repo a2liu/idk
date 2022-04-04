@@ -8,11 +8,13 @@ const ArrayList = std.ArrayList;
 
 const TodoItem = struct {
     is_done: bool = false,
+    id: c_int,
     name: ArrayList(u8) = ArrayList(u8).init(alloc.Global),
 };
 
 // Globals are safe here, because we only run the GUI code on exactly one
 // thread.
+var next_id: c_int = 0;
 var items = ArrayList(TodoItem).init(alloc.Global);
 
 fn textCallback(data: [*c]c.ImGuiInputTextCallbackData) callconv(.C) c_int {
@@ -38,8 +40,22 @@ pub fn todoApp(is_open: *bool) !void {
     _ = c.igBegin("Todo App", is_open, 0);
     defer c.igEnd();
 
+    if (!is_open.*) {
+        std.debug.print("closing from window\n", .{});
+
+        for (items.items) |*item| {
+            item.name.deinit();
+        }
+
+        items.items.len = 0;
+
+        return;
+    }
+
     if (c.igButton("Add a todo item", .{ .x = 0, .y = 0 })) {
-        var newItem = TodoItem{};
+        var newItem = TodoItem{ .id = next_id };
+        next_id += 1;
+
         try newItem.name.resize(64);
         newItem.name.items[0] = 0;
 
@@ -48,10 +64,10 @@ pub fn todoApp(is_open: *bool) !void {
 
     const flags = c.ImGuiInputTextFlags_CallbackResize;
 
-    for (items.items) |*item, index| {
+    for (items.items) |*item| {
         const name = &item.name;
 
-        c.igPushID_Int(cast(c_int, index) catch @panic("wtf"));
+        c.igPushID_Int(item.id);
 
         _ = c.igInputText(
             "##",
