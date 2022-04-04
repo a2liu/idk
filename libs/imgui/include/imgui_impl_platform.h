@@ -27,7 +27,14 @@
 // NULL if unsure!
 
 #pragma once
-#include "imgui.h" // IMGUI_IMPL_API
+
+#ifdef __cplusplus
+#include "imgui.h"
+#undef IMGUI_IMPL_API
+#define IMGUI_IMPL_API extern "C"
+#else
+#define IMGUI_IMPL_API
+#endif
 
 struct GLFWwindow;
 struct GLFWmonitor;

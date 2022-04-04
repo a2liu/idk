@@ -20,6 +20,7 @@
 #include "imgui_impl_render.h"
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
+#include <time.h>   // nanosleep
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -36,7 +37,6 @@
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
 
-//#define IMGUI_UNLIMITED_FRAME_RATE
 #ifdef _DEBUG
 #define IMGUI_VULKAN_DEBUG_REPORT
 #endif
@@ -257,13 +257,9 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window *wd,
       requestSurfaceColorSpace);
 
   // Select Present Mode
-#ifdef IMGUI_UNLIMITED_FRAME_RATE
   VkPresentModeKHR present_modes[] = {VK_PRESENT_MODE_MAILBOX_KHR,
                                       VK_PRESENT_MODE_IMMEDIATE_KHR,
                                       VK_PRESENT_MODE_FIFO_KHR};
-#else
-  VkPresentModeKHR present_modes[] = {VK_PRESENT_MODE_FIFO_KHR};
-#endif
   wd->PresentMode = ImGui_ImplVulkanH_SelectPresentMode(
       g_PhysicalDevice, wd->Surface, &present_modes[0],
       IM_ARRAYSIZE(present_modes));
@@ -397,9 +393,9 @@ static void glfw_error_callback(int error, const char *description) {
 
 extern "C" int cpp_main() {
   // Setup GLFW window
-  glfwSetErrorCallback(glfw_error_callback);
-  if (!glfwInit())
-    return 1;
+  // glfwSetErrorCallback(glfw_error_callback);
+  // if (!glfwInit())
+  //   return 1;
 
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   GLFWwindow *window =
@@ -605,8 +601,10 @@ extern "C" int cpp_main() {
     // Rendering
     ImGui::Render();
     ImDrawData *draw_data = ImGui::GetDrawData();
+
     const bool is_minimized =
         (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+
     if (!is_minimized) {
       wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
       wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
@@ -615,6 +613,12 @@ extern "C" int cpp_main() {
       FrameRender(wd, draw_data);
       FramePresent(wd);
     }
+
+    struct timespec request, remaining;
+    request.tv_sec = 0;
+    request.tv_nsec = 1000 * 1000;
+
+    nanosleep(&request, &remaining);
   }
 
   // Cleanup
