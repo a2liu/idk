@@ -159,3 +159,27 @@ pub const Temp = struct {
         return bump.allocate(&self.mark, len, ptr_align, len_align, ret_addr);
     }
 };
+
+const FrameAlloc = struct {
+    const InitialSize = 1024 * 1024;
+    threadlocal var bump = Bump.init(InitialSize, Global);
+
+    fn allocate(_: *GlobalAlloc, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
+        // Bruh what, why is this necessary
+        bump.bump.ranges.allocator = Global;
+
+        return bump.bump.allocate(&bump.mark, len, ptr_align, len_align, ret_addr);
+    }
+};
+
+var dummy_frame_alloc = FrameAlloc{};
+pub const Frame = frame_alloc: {
+    const resize = Allocator.NoResize(GlobalAlloc).noResize;
+    const free = Allocator.NoOpFree(GlobalAlloc).noOpFree;
+
+    break :frame_alloc Allocator.init(&GlobalAllocator, FrameAlloc.allocate, resize, free);
+};
+
+pub fn clearFrameAllocator() void {
+    FrameAlloc.bump.mark = Mark.ZERO;
+}

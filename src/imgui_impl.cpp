@@ -411,71 +411,17 @@ void cpp_new_frame(void) {
   ImGui_ImplGlfw_NewFrame();
 }
 
-static bool g_ShowDemoWindow = true;
-static bool g_ShowAnotherWindow = false;
-static ImVec4 g_ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-void cpp_loop(void) {
-  // 2. Show a simple window that we create ourselves. We use a Begin/End pair
-  // to created a named window.
-  {
-    static float f = 0.0f;
-    static int counter = 0;
-
-    // Create a window called "Hello, world!" and append into it.
-    ImGui::Begin("Hello, world!");
-
-    // Display some text (you can use a format strings too)
-    ImGui::Text("This is some useful text.");
-
-    // Edit bools storing our window open/close state
-    ImGui::Checkbox("Demo Window", &g_ShowDemoWindow);
-    ImGui::Checkbox("Another Window", &g_ShowAnotherWindow);
-
-    // Edit 1 float using a slider from 0.0f to 1.0f
-    ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
-
-    // Edit 3 floats representing a color
-    ImGui::ColorEdit3("clear color", (float *)&g_ClearColor);
-
-    // Buttons return true when clicked (most widgets return true when
-    // edited/activated)
-    if (ImGui::Button("Button"))
-      counter++;
-
-    ImGui::SameLine();
-    ImGui::Text("counter = %d", counter);
-
-    ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-    ImGui::End();
-  }
-
-  // 3. Show another simple window.
-  if (g_ShowAnotherWindow) {
-    // Pass a pointer to our bool variable (the
-    // window will have a closing button that will
-    // clear the bool when clicked)
-    ImGui::Begin("Another Window", &g_ShowAnotherWindow);
-
-    ImGui::Text("Hello from another window!");
-    if (ImGui::Button("Close Me"))
-      g_ShowAnotherWindow = false;
-    ImGui::End();
-  }
-}
-
-void cpp_render(GLFWwindow *window, ImDrawData *draw_data) {
+void cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
   const bool is_minimized =
       (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 
   if (!is_minimized) {
     ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
 
-    wd->ClearValue.color.float32[0] = g_ClearColor.x * g_ClearColor.w;
-    wd->ClearValue.color.float32[1] = g_ClearColor.y * g_ClearColor.w;
-    wd->ClearValue.color.float32[2] = g_ClearColor.z * g_ClearColor.w;
-    wd->ClearValue.color.float32[3] = g_ClearColor.w;
+    wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+    wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+    wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+    wd->ClearValue.color.float32[3] = clear_color.w;
     FrameRender(wd, draw_data);
     FramePresent(wd);
   }
