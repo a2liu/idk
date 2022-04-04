@@ -40,24 +40,20 @@ pub fn build(b: *std.build.Builder) void {
 
     exe.addIncludeDir("src/include");
     exe.addIncludeDir("libs/imgui/include");
-    exe.addCSourceFiles(&.{
-        "libs/imgui/cimgui.cpp",
-        "libs/imgui/imgui.cpp",
-        "libs/imgui/imgui_draw.cpp",
-        "libs/imgui/imgui_widgets.cpp",
-        "libs/imgui/imgui_tables.cpp",
-        "libs/imgui/imgui_demo.cpp",
-        "libs/imgui/imgui_impl_render.cpp",
-        "libs/imgui/imgui_impl_platform.cpp",
+
+    const files = .{
+        "libs/imgui/cimgui.cpp",            "libs/imgui/imgui.cpp",
+        "libs/imgui/imgui_draw.cpp",        "libs/imgui/imgui_widgets.cpp",
+        "libs/imgui/imgui_tables.cpp",      "libs/imgui/imgui_demo.cpp",
+        "libs/imgui/imgui_impl_render.cpp", "libs/imgui/imgui_impl_platform.cpp",
 
         "src/imgui_impl.cpp",
-    }, &.{
-        "-fno-exceptions",
-        "-fno-rtti",
-        "-Wno-return-type-c-linkage",
-        "-nostdlib",
-        "-nostdlib++",
-    });
+    };
+    const flags = .{
+        "-fno-exceptions", "-fno-rtti",   "-Wno-return-type-c-linkage",
+        "-nostdlib",       "-nostdlib++",
+    };
+    exe.addCSourceFiles(&files, &flags);
 
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());

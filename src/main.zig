@@ -67,17 +67,18 @@ pub fn main() !void {
         alloc.clearFrameAllocator();
 
         // 1. Show the big demo window (Most of the sample code is in
-        // ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear
-        // ImGui!).
+        // ImGui::ShowDemoWindow()! You can browse its code to learn more about
+        // Dear ImGui!).
         if (show_demo_window) {
             c.igShowDemoWindow(&show_demo_window);
         }
 
-        // 2. Show a simple window that we create ourselves. We use a Begin/End pair
-        // to created a named window.
+        // 2. Show a simple window that we create ourselves. We use a Begin/End
+        // pair to created a named window.
         {
             // Create a window called "Hello, world!" and append into it.
             _ = c.igBegin("Hello, world!", null, 0);
+            defer c.igEnd();
 
             // Display some text (you can use a format strings too)
             gui.Text("This is some useful text.", .{});
@@ -109,23 +110,19 @@ pub fn main() !void {
                 "Application average {d:.3} ms/frame ({d:.1} FPS)",
                 .{ frame_time, fps },
             );
-
-            c.igEnd();
         }
 
         // 3. Show another simple window.
         if (show_another_window) {
-            // Pass a pointer to our bool variable (the
-            // window will have a closing button that will
-            // clear the bool when clicked)
+            // Pass a pointer to our bool variable (the window will have a
+            // closing button that will clear the bool when clicked)
             _ = c.igBegin("Another Window", &show_another_window, 0);
+            defer c.igEnd();
 
             gui.Text("Hello from another window!", .{});
             if (c.igButton("Close Me", .{ .x = 0, .y = 0 })) {
                 show_another_window = false;
             }
-
-            c.igEnd();
         }
 
         c.igRender();
