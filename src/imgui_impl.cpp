@@ -53,7 +53,6 @@ static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
 
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int g_MinImageCount = 2;
-static bool g_SwapChainRebuild = false;
 
 static void check_vk_result(VkResult err) {
   if (err == 0)
@@ -292,20 +291,22 @@ static void CleanupVulkanWindow() {
                                   g_Allocator);
 }
 
-static void FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
+static bool FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
   VkResult err;
 
   VkSemaphore image_acquired_semaphore =
       wd->FrameSemaphores[wd->SemaphoreIndex].ImageAcquiredSemaphore;
   VkSemaphore render_complete_semaphore =
       wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
+
   err = vkAcquireNextImageKHR(g_Device, wd->Swapchain, UINT64_MAX,
                               image_acquired_semaphore, VK_NULL_HANDLE,
                               &wd->FrameIndex);
+
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
-    g_SwapChainRebuild = true;
-    return;
+    return true;
   }
+
   check_vk_result(err);
 
   ImGui_ImplVulkanH_Frame *fd = &wd->Frames[wd->FrameIndex];
@@ -318,6 +319,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
     err = vkResetFences(g_Device, 1, &fd->Fence);
     check_vk_result(err);
   }
+
   {
     err = vkResetCommandPool(g_Device, fd->CommandPool, 0);
     check_vk_result(err);
@@ -327,6 +329,7 @@ static void FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
     err = vkBeginCommandBuffer(fd->CommandBuffer, &info);
     check_vk_result(err);
   }
+
   {
     VkRenderPassBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
@@ -362,11 +365,11 @@ static void FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
     err = vkQueueSubmit(g_Queue, 1, &info, fd->Fence);
     check_vk_result(err);
   }
+
+  return false;
 }
 
-static void FramePresent(ImGui_ImplVulkanH_Window *wd) {
-  if (g_SwapChainRebuild)
-    return;
+static bool FramePresent(ImGui_ImplVulkanH_Window *wd) {
   VkSemaphore render_complete_semaphore =
       wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
   VkPresentInfoKHR info = {};
@@ -378,13 +381,15 @@ static void FramePresent(ImGui_ImplVulkanH_Window *wd) {
   info.pImageIndices = &wd->FrameIndex;
   VkResult err = vkQueuePresentKHR(g_Queue, &info);
   if (err == VK_ERROR_OUT_OF_DATE_KHR || err == VK_SUBOPTIMAL_KHR) {
-    g_SwapChainRebuild = true;
-    return;
+    return true;
   }
+
   check_vk_result(err);
   wd->SemaphoreIndex =
       (wd->SemaphoreIndex + 1) %
       wd->ImageCount; // Now we can use the next set of semaphores
+
+  return false;
 }
 
 static void glfw_error_callback(int error, const char *description) {
@@ -392,17 +397,15 @@ static void glfw_error_callback(int error, const char *description) {
 }
 
 void cpp_resize_swapchain(GLFWwindow *window) {
-  if (g_SwapChainRebuild) {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-    if (width > 0 && height > 0) {
-      ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-      ImGui_ImplVulkanH_CreateOrResizeWindow(
-          g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData,
-          g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
-      g_MainWindowData.FrameIndex = 0;
-      g_SwapChainRebuild = false;
-    }
+  int width, height;
+  glfwGetFramebufferSize(window, &width, &height);
+
+  if (width > 0 && height > 0) {
+    ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
+    ImGui_ImplVulkanH_CreateOrResizeWindow(
+        g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData,
+        g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+    g_MainWindowData.FrameIndex = 0;
   }
 }
 
@@ -411,20 +414,19 @@ void cpp_new_frame(void) {
   ImGui_ImplGlfw_NewFrame();
 }
 
-void cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
-  const bool is_minimized =
-      (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
+bool cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
+  ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
 
-  if (!is_minimized) {
-    ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
+  wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+  wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+  wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+  wd->ClearValue.color.float32[3] = clear_color.w;
 
-    wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-    wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-    wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-    wd->ClearValue.color.float32[3] = clear_color.w;
-    FrameRender(wd, draw_data);
-    FramePresent(wd);
+  if (FrameRender(wd, draw_data)) {
+    return true;
   }
+
+  return FramePresent(wd);
 }
 
 void cpp_init(GLFWwindow *window) {

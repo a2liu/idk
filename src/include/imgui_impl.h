@@ -13,7 +13,7 @@
 
 EXTERN void cpp_resize_swapchain(GLFWwindow *window);
 EXTERN void cpp_new_frame(void);
-EXTERN void cpp_render(GLFWwindow *window, ImDrawData *draw_data,
+EXTERN bool cpp_render(GLFWwindow *window, ImDrawData *draw_data,
                        ImVec4 clear_color);
 
 EXTERN void cpp_init(GLFWwindow *window);

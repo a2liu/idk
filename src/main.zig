@@ -44,6 +44,8 @@ pub fn main() !void {
     var counter_value: i32 = 0;
     var clear_color = c.ImVec4{ .x = 0.45, .y = 0.55, .z = 0.60, .w = 1.00 };
 
+    var rebuild_chain = false;
+
     while (!window.shouldClose()) {
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
@@ -56,7 +58,10 @@ pub fn main() !void {
         // and hide them from your application based on those two flags.
         try glfw.pollEvents();
 
-        c.cpp_resize_swapchain(handle);
+        if (rebuild_chain) {
+            c.cpp_resize_swapchain(handle);
+        }
+
         c.cpp_new_frame();
         c.igNewFrame();
         alloc.clearFrameAllocator();
@@ -124,8 +129,13 @@ pub fn main() !void {
         }
 
         c.igRender();
+
         const draw_data = c.igGetDrawData();
-        c.cpp_render(handle, draw_data, clear_color);
+        const display_size = draw_data.*.DisplaySize;
+        const is_minimized = display_size.x <= 0.0 or display_size.y <= 0.0;
+        if (!is_minimized) {
+            rebuild_chain = c.cpp_render(handle, draw_data, clear_color);
+        }
 
         std.time.sleep(1000 * 1000);
     }
