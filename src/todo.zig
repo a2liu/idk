@@ -16,32 +16,41 @@ const TodoItem = struct {
 var items = ArrayList(TodoItem).init(alloc.Global);
 
 fn textCallback(data: [*c]c.ImGuiInputTextCallbackData) callconv(.C) c_int {
-    _ = data;
+    const aligned_user_data = @alignCast(8, data.*.UserData);
+    const name = @ptrCast(*ArrayList(u8), aligned_user_data);
 
-    // https://github.com/ocornut/imgui/blob/master/misc/cpp/imgui_stdlib.cpp
-    // https://github.com/ocornut/imgui/blob/1ba2905017ea81545b2fd1d45fee093a4982d9b1/imgui.h#L2071
+    if (data.*.EventFlag == c.ImGuiInputTextFlags_CallbackResize) {
+        std.debug.assert(data.*.Buf == name.items.ptr);
+
+        // Resize string callback
+        // If for some reason we refuse the new length (BufTextLen) and/or capacity (BufSize) we need to set them back to what we want.
+        const len = cast(usize, data.*.BufTextLen) catch @panic("oops");
+        name.resize(len) catch @panic("welp");
+        data.*.Buf = name.items.ptr;
+    }
 
     return 0;
 }
 
 pub fn todoApp(is_open: *bool) !void {
-    c.igSetNextWindowSize(.{ .x = 300, .y = 400 }, c.ImGuiCond_FirstUseEver);
+    c.igSetNextWindowSize(.{ .x = 400, .y = 400 }, c.ImGuiCond_FirstUseEver);
 
     _ = c.igBegin("Todo App", is_open, 0);
     defer c.igEnd();
 
     if (c.igButton("Add a todo item", .{ .x = 0, .y = 0 })) {
         var newItem = TodoItem{};
-        try newItem.name.ensureUnusedCapacity(64);
-
-        const allocated = newItem.name.allocatedSlice();
-        @memset(allocated.ptr, 0, allocated.len);
+        try newItem.name.resize(1);
+        newItem.name.items[0] = 0;
+        // std.mem.set(u8, newItem.name.items, 0);
 
         try items.append(newItem);
     }
 
-    for (items.items) |item, index| {
-        var name = item.name;
+    const flags = c.ImGuiInputTextFlags_CallbackResize;
+
+    for (items.items) |*item, index| {
+        const name = &item.name;
 
         c.igPushID_Int(cast(c_int, index) catch @panic("wtf"));
 
@@ -49,9 +58,9 @@ pub fn todoApp(is_open: *bool) !void {
             "##",
             name.items.ptr,
             name.capacity,
-            0,
+            flags,
             textCallback,
-            &name,
+            name,
         );
 
         c.igPopID();
