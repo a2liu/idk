@@ -55,10 +55,6 @@ static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int g_MinImageCount = 2;
 static bool g_SwapChainRebuild = false;
 
-static bool g_ShowDemoWindow = true;
-static bool g_ShowAnotherWindow = false;
-static ImVec4 g_ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
 static void check_vk_result(VkResult err) {
   if (err == 0)
     return;
@@ -395,19 +391,7 @@ static void glfw_error_callback(int error, const char *description) {
   fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-void cpp_loop(GLFWwindow *window) {
-  // Poll and handle events (inputs, window resize, etc.)
-  // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
-  // tell if dear imgui wants to use your inputs.
-  // - When io.WantCaptureMouse is true, do not dispatch mouse input data to
-  // your main application, or clear/overwrite your copy of the mouse data.
-  // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input
-  // data to your main application, or clear/overwrite your copy of the
-  // keyboard data. Generally you may always pass all inputs to dear imgui,
-  // and hide them from your application based on those two flags.
-  glfwPollEvents();
-
-  // Resize swap chain?
+void cpp_resize_swapchain(GLFWwindow *window) {
   if (g_SwapChainRebuild) {
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
@@ -420,12 +404,18 @@ void cpp_loop(GLFWwindow *window) {
       g_SwapChainRebuild = false;
     }
   }
+}
 
-  // Start the Dear ImGui frame
+void cpp_new_frame(void) {
   ImGui_ImplVulkan_NewFrame();
   ImGui_ImplGlfw_NewFrame();
-  ImGui::NewFrame();
+}
 
+static bool g_ShowDemoWindow = true;
+static bool g_ShowAnotherWindow = false;
+static ImVec4 g_ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+void cpp_loop(void) {
   // 1. Show the big demo window (Most of the sample code is in
   // ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear
   // ImGui!).
@@ -479,11 +469,9 @@ void cpp_loop(GLFWwindow *window) {
       g_ShowAnotherWindow = false;
     ImGui::End();
   }
+}
 
-  // Rendering
-  ImGui::Render();
-  ImDrawData *draw_data = ImGui::GetDrawData();
-
+void cpp_render(GLFWwindow *window, ImDrawData *draw_data) {
   const bool is_minimized =
       (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
 

@@ -28,22 +28,35 @@ pub fn main() !void {
     _ = c.igCreateContext(null);
     defer c.igDestroyContext(null);
 
-    const io = c.igGetIO();
-
-    io.*.IniFilename = null;
-    // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable
-    // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; //
-    // Enable Gamepad Controls
-
-    // Setup Dear ImGui style
-    c.igStyleColorsDark(null);
-    // c.igStyleColorsLight(null);
-    // c.igStyleColorsClassic(null);
+    {
+        const io = c.igGetIO();
+        io.*.IniFilename = null;
+        c.igStyleColorsDark(null); // Setup Dear ImGui style
+    }
 
     c.cpp_init(handle);
 
     while (!window.shouldClose()) {
-        c.cpp_loop(handle);
+        // Poll and handle events (inputs, window resize, etc.)
+        // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
+        // tell if dear imgui wants to use your inputs.
+        // - When io.WantCaptureMouse is true, do not dispatch mouse input data to
+        // your main application, or clear/overwrite your copy of the mouse data.
+        // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input
+        // data to your main application, or clear/overwrite your copy of the
+        // keyboard data. Generally you may always pass all inputs to dear imgui,
+        // and hide them from your application based on those two flags.
+        try glfw.pollEvents();
+
+        c.cpp_resize_swapchain(handle);
+        c.cpp_new_frame();
+        c.igNewFrame();
+
+        c.cpp_loop();
+
+        c.igRender();
+        const draw_data = c.igGetDrawData();
+        c.cpp_render(handle, draw_data);
 
         std.time.sleep(1000 * 1000);
     }
