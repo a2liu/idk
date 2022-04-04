@@ -438,11 +438,11 @@ void cpp_loop(GLFWwindow *window) {
     static float f = 0.0f;
     static int counter = 0;
 
-    ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!"
-                                   // and append into it.
+    // Create a window called "Hello, world!" and append into it.
+    ImGui::Begin("Hello, world!");
 
-    ImGui::Text("This is some useful text."); // Display some text (you can
-                                              // use a format strings too)
+    // Display some text (you can use a format strings too)
+    ImGui::Text("This is some useful text.");
 
     // Edit bools storing our window open/close state
     ImGui::Checkbox("Demo Window", &g_ShowDemoWindow);
@@ -454,9 +454,11 @@ void cpp_loop(GLFWwindow *window) {
     // Edit 3 floats representing a color
     ImGui::ColorEdit3("clear color", (float *)&g_ClearColor);
 
-    if (ImGui::Button("Button")) // Buttons return true when clicked (most
-                                 // widgets return true when edited/activated)
+    // Buttons return true when clicked (most widgets return true when
+    // edited/activated)
+    if (ImGui::Button("Button"))
       counter++;
+
     ImGui::SameLine();
     ImGui::Text("counter = %d", counter);
 
@@ -467,11 +469,11 @@ void cpp_loop(GLFWwindow *window) {
 
   // 3. Show another simple window.
   if (g_ShowAnotherWindow) {
-    ImGui::Begin(
-        "Another Window",
-        &g_ShowAnotherWindow); // Pass a pointer to our bool variable (the
-                               // window will have a closing button that will
-                               // clear the bool when clicked)
+    // Pass a pointer to our bool variable (the
+    // window will have a closing button that will
+    // clear the bool when clicked)
+    ImGui::Begin("Another Window", &g_ShowAnotherWindow);
+
     ImGui::Text("Hello from another window!");
     if (ImGui::Button("Close Me"))
       g_ShowAnotherWindow = false;
@@ -498,12 +500,9 @@ void cpp_loop(GLFWwindow *window) {
 }
 
 void cpp_init(GLFWwindow *window) {
-  // Setup Vulkan
-  if (!glfwVulkanSupported()) {
-    printf("GLFW: Vulkan Not Supported\n");
-    exit(1);
-  }
+  IMGUI_CHECKVERSION();
 
+  // Setup Vulkan
   uint32_t extensions_count = 0;
   const char **extensions =
       glfwGetRequiredInstanceExtensions(&extensions_count);
@@ -520,20 +519,6 @@ void cpp_init(GLFWwindow *window) {
   glfwGetFramebufferSize(window, &w, &h);
   ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
   SetupVulkanWindow(wd, surface, w, h);
-
-  // Setup Dear ImGui context
-  IMGUI_CHECKVERSION();
-  ImGui::CreateContext();
-  ImGuiIO &io = ImGui::GetIO();
-
-  io.IniFilename = nullptr;
-  // io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;     // Enable
-  // Keyboard Controls io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; //
-  // Enable Gamepad Controls
-
-  // Setup Dear ImGui style
-  ImGui::StyleColorsDark();
-  // ImGui::StyleColorsClassic();
 
   // Setup Platform/Renderer backends
   ImGui_ImplGlfw_InitForVulkan(window, true);
@@ -616,13 +601,9 @@ int cpp_teardown(GLFWwindow *window) {
 
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
-  ImGui::DestroyContext();
 
   CleanupVulkanWindow();
   CleanupVulkan();
-
-  glfwDestroyWindow(window);
-  glfwTerminate();
 
   return 0;
 }
