@@ -10,8 +10,8 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-EXTERN void main_loop(GLFWwindow *window);
 EXTERN int cpp_main();
 
-EXTERN int cpp_init();
+EXTERN void cpp_loop(GLFWwindow *window);
+EXTERN void cpp_init(GLFWwindow *window);
 EXTERN int cpp_teardown(GLFWwindow *window);

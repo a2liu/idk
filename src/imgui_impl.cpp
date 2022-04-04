@@ -396,7 +396,7 @@ static void glfw_error_callback(int error, const char *description) {
   fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-void main_loop(GLFWwindow *window) {
+void cpp_loop(GLFWwindow *window) {
   // Poll and handle events (inputs, window resize, etc.)
   // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
   // tell if dear imgui wants to use your inputs.
@@ -504,16 +504,13 @@ void main_loop(GLFWwindow *window) {
   nanosleep(&request, &remaining);
 }
 
-int cpp_main() {
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  GLFWwindow *window =
-      glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
-
+void cpp_init(GLFWwindow *window) {
   // Setup Vulkan
   if (!glfwVulkanSupported()) {
     printf("GLFW: Vulkan Not Supported\n");
-    return 1;
+    exit(1);
   }
+
   uint32_t extensions_count = 0;
   const char **extensions =
       glfwGetRequiredInstanceExtensions(&extensions_count);
@@ -616,18 +613,6 @@ int cpp_main() {
     check_vk_result(err);
     ImGui_ImplVulkan_DestroyFontUploadObjects();
   }
-
-  // Our state
-  bool g_ShowDemoWindow = true;
-  bool g_ShowAnotherWindow = false;
-  ImVec4 g_ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
-
-  // Main loop
-  while (!glfwWindowShouldClose(window)) {
-    main_loop(window);
-  }
-
-  return cpp_teardown(window);
 }
 
 int cpp_teardown(GLFWwindow *window) {
@@ -647,4 +632,19 @@ int cpp_teardown(GLFWwindow *window) {
   glfwTerminate();
 
   return 0;
+}
+
+int cpp_main() {
+  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+  GLFWwindow *window =
+      glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
+
+  cpp_init(window);
+
+  // Main loop
+  while (!glfwWindowShouldClose(window)) {
+    cpp_loop(window);
+  }
+
+  return cpp_teardown(window);
 }
