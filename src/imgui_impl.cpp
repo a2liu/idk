@@ -15,6 +15,7 @@
 //   by your own engine/app code.
 // Read comments in imgui_impl_vulkan.h.
 
+#include "imgui_impl.h"
 #include "imgui.h"
 #include "imgui_impl_platform.h"
 #include "imgui_impl_render.h"
@@ -391,7 +392,7 @@ static void glfw_error_callback(int error, const char *description) {
   fprintf(stderr, "Glfw Error %d: %s\n", error, description);
 }
 
-extern "C" int cpp_main() {
+int cpp_main() {
   // Setup GLFW window
   // glfwSetErrorCallback(glfw_error_callback);
   // if (!glfwInit())

@@ -8,4 +8,6 @@ usingnamespace @cImport({
     @cDefine("IMGUI_IMPL_API", "");
     @cDefine("NULL", "((void*) 0)");
     @cInclude("imgui_impl_render.h");
+
+    @cInclude("imgui_impl.h");
 });
