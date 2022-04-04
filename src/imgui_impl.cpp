@@ -633,18 +633,3 @@ int cpp_teardown(GLFWwindow *window) {
 
   return 0;
 }
-
-int cpp_main() {
-  glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-  GLFWwindow *window =
-      glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
-
-  cpp_init(window);
-
-  // Main loop
-  while (!glfwWindowShouldClose(window)) {
-    cpp_loop(window);
-  }
-
-  return cpp_teardown(window);
-}
