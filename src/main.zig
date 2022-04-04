@@ -14,12 +14,16 @@ pub fn main() !void {
         .client_api = .no_api,
     });
 
+    // They're the same struct type, but defined in different includes of the
+    // same header
     const handle = @ptrCast(*c.struct_GLFWwindow, window.handle);
 
     c.cpp_init(handle);
 
     while (!window.shouldClose()) {
         c.cpp_loop(handle);
+
+        std.time.sleep(1000 * 1000);
     }
 
     const result = c.cpp_teardown(handle);

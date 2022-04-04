@@ -21,7 +21,6 @@
 #include "imgui_impl_render.h"
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
-#include <time.h>   // nanosleep
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -496,12 +495,6 @@ void cpp_loop(GLFWwindow *window) {
     FrameRender(wd, draw_data);
     FramePresent(wd);
   }
-
-  struct timespec request, remaining;
-  request.tv_sec = 0;
-  request.tv_nsec = 1000 * 1000;
-
-  nanosleep(&request, &remaining);
 }
 
 void cpp_init(GLFWwindow *window) {
