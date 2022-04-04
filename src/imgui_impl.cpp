@@ -447,7 +447,7 @@ void main_loop(GLFWwindow *window) {
 
     // Edit bools storing our window open/close state
     ImGui::Checkbox("Demo Window", &g_ShowDemoWindow);
-    ImGui::Checkbox("Another Window", &g_ShowDemoWindow);
+    ImGui::Checkbox("Another Window", &g_ShowAnotherWindow);
 
     // Edit 1 float using a slider from 0.0f to 1.0f
     ImGui::SliderFloat("float", &f, 0.0f, 1.0f);
@@ -505,11 +505,6 @@ void main_loop(GLFWwindow *window) {
 }
 
 int cpp_main() {
-  // Setup GLFW window
-  // glfwSetErrorCallback(glfw_error_callback);
-  // if (!glfwInit())
-  //   return 1;
-
   glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
   GLFWwindow *window =
       glfwCreateWindow(1280, 720, "Dear ImGui GLFW+Vulkan example", NULL, NULL);
@@ -629,108 +624,7 @@ int cpp_main() {
 
   // Main loop
   while (!glfwWindowShouldClose(window)) {
-    // Poll and handle events (inputs, window resize, etc.)
-    // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
-    // tell if dear imgui wants to use your inputs.
-    // - When io.WantCaptureMouse is true, do not dispatch mouse input data to
-    // your main application, or clear/overwrite your copy of the mouse data.
-    // - When io.WantCaptureKeyboard is true, do not dispatch keyboard input
-    // data to your main application, or clear/overwrite your copy of the
-    // keyboard data. Generally you may always pass all inputs to dear imgui,
-    // and hide them from your application based on those two flags.
-    glfwPollEvents();
-
-    // Resize swap chain?
-    if (g_SwapChainRebuild) {
-      int width, height;
-      glfwGetFramebufferSize(window, &width, &height);
-      if (width > 0 && height > 0) {
-        ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
-        ImGui_ImplVulkanH_CreateOrResizeWindow(
-            g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData,
-            g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
-        g_MainWindowData.FrameIndex = 0;
-        g_SwapChainRebuild = false;
-      }
-    }
-
-    // Start the Dear ImGui frame
-    ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplGlfw_NewFrame();
-    ImGui::NewFrame();
-
-    // 1. Show the big demo window (Most of the sample code is in
-    // ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear
-    // ImGui!).
-    if (g_ShowDemoWindow)
-      ImGui::ShowDemoWindow(&g_ShowDemoWindow);
-
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair
-    // to created a named window.
-    {
-      static float f = 0.0f;
-      static int counter = 0;
-
-      ImGui::Begin("Hello, world!"); // Create a window called "Hello, world!"
-                                     // and append into it.
-
-      ImGui::Text("This is some useful text."); // Display some text (you can
-                                                // use a format strings too)
-      // Edit bools storing our window open/close state
-      ImGui::Checkbox("Demo Window", &g_ShowDemoWindow);
-      ImGui::Checkbox("Another Window", &g_ShowAnotherWindow);
-
-      ImGui::SliderFloat("float", &f, 0.0f,
-                         1.0f); // Edit 1 float using a slider from 0.0f to 1.0f
-      ImGui::ColorEdit3(
-          "clear color",
-          (float *)&g_ClearColor); // Edit 3 floats representing a color
-
-      if (ImGui::Button("Button")) // Buttons return true when clicked (most
-                                   // widgets return true when edited/activated)
-        counter++;
-      ImGui::SameLine();
-      ImGui::Text("counter = %d", counter);
-
-      ImGui::Text("Application average %.3f ms/frame (%.1f FPS)",
-                  1000.0f / ImGui::GetIO().Framerate, ImGui::GetIO().Framerate);
-      ImGui::End();
-    }
-
-    // 3. Show another simple window.
-    if (g_ShowAnotherWindow) {
-      ImGui::Begin(
-          "Another Window",
-          &g_ShowAnotherWindow); // Pass a pointer to our bool variable (the
-                                 // window will have a closing button that will
-                                 // clear the bool when clicked)
-      ImGui::Text("Hello from another window!");
-      if (ImGui::Button("Close Me"))
-        g_ShowAnotherWindow = false;
-      ImGui::End();
-    }
-
-    // Rendering
-    ImGui::Render();
-    ImDrawData *draw_data = ImGui::GetDrawData();
-
-    const bool is_minimized =
-        (draw_data->DisplaySize.x <= 0.0f || draw_data->DisplaySize.y <= 0.0f);
-
-    if (!is_minimized) {
-      wd->ClearValue.color.float32[0] = g_ClearColor.x * g_ClearColor.w;
-      wd->ClearValue.color.float32[1] = g_ClearColor.y * g_ClearColor.w;
-      wd->ClearValue.color.float32[2] = g_ClearColor.z * g_ClearColor.w;
-      wd->ClearValue.color.float32[3] = g_ClearColor.w;
-      FrameRender(wd, draw_data);
-      FramePresent(wd);
-    }
-
-    struct timespec request, remaining;
-    request.tv_sec = 0;
-    request.tv_nsec = 1000 * 1000;
-
-    nanosleep(&request, &remaining);
+    main_loop(window);
   }
 
   // Cleanup
