@@ -12,3 +12,6 @@
 
 EXTERN void main_loop(GLFWwindow *window);
 EXTERN int cpp_main();
+
+EXTERN int cpp_init();
+EXTERN int cpp_teardown(GLFWwindow *window);

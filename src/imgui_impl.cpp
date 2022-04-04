@@ -627,9 +627,15 @@ int cpp_main() {
     main_loop(window);
   }
 
+  return cpp_teardown(window);
+}
+
+int cpp_teardown(GLFWwindow *window) {
   // Cleanup
-  err = vkDeviceWaitIdle(g_Device);
+
+  VkResult err = vkDeviceWaitIdle(g_Device);
   check_vk_result(err);
+
   ImGui_ImplVulkan_Shutdown();
   ImGui_ImplGlfw_Shutdown();
   ImGui::DestroyContext();
