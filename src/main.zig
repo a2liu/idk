@@ -1,7 +1,7 @@
 const std = @import("std");
 const alloc = @import("./allocators.zig");
 const glfw = @import("glfw");
-const gui = @import("gui/mod.zig");
+const gui = @import("gui.zig");
 const render = @import("render/mod.zig");
 const c = @import("c.zig");
 
@@ -58,13 +58,14 @@ pub fn main() !void {
         // and hide them from your application based on those two flags.
         try glfw.pollEvents();
 
+        alloc.clearFrameAllocator();
+
         if (rebuild_chain) {
             c.cpp_resize_swapchain(handle);
         }
 
         c.cpp_new_frame();
         c.igNewFrame();
-        alloc.clearFrameAllocator();
 
         // 1. Show the big demo window (Most of the sample code is in
         // ImGui::ShowDemoWindow()! You can browse its code to learn more about

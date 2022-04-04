@@ -1,8 +1,8 @@
 const std = @import("std");
-const alloc = @import("../allocators.zig");
+const alloc = @import("allocators.zig");
+const c = @import("c.zig");
 // const glfw = @import("glfw");
 // const vk = @import("vulkan");
-const c = @import("../c.zig");
 
 // const Key = glfw.Key;
 
