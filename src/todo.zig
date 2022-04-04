@@ -40,9 +40,8 @@ pub fn todoApp(is_open: *bool) !void {
 
     if (c.igButton("Add a todo item", .{ .x = 0, .y = 0 })) {
         var newItem = TodoItem{};
-        try newItem.name.resize(1);
+        try newItem.name.resize(64);
         newItem.name.items[0] = 0;
-        // std.mem.set(u8, newItem.name.items, 0);
 
         try items.append(newItem);
     }
