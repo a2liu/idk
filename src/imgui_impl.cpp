@@ -416,12 +416,6 @@ static bool g_ShowAnotherWindow = false;
 static ImVec4 g_ClearColor = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 void cpp_loop(void) {
-  // 1. Show the big demo window (Most of the sample code is in
-  // ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear
-  // ImGui!).
-  if (g_ShowDemoWindow)
-    ImGui::ShowDemoWindow(&g_ShowDemoWindow);
-
   // 2. Show a simple window that we create ourselves. We use a Begin/End pair
   // to created a named window.
   {

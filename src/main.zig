@@ -36,6 +36,8 @@ pub fn main() !void {
 
     c.cpp_init(handle);
 
+    var show_demo_window = true;
+
     while (!window.shouldClose()) {
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
@@ -51,6 +53,13 @@ pub fn main() !void {
         c.cpp_resize_swapchain(handle);
         c.cpp_new_frame();
         c.igNewFrame();
+
+        // 1. Show the big demo window (Most of the sample code is in
+        // ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear
+        // ImGui!).
+        if (show_demo_window) {
+            c.igShowDemoWindow(&show_demo_window);
+        }
 
         c.cpp_loop();
 
