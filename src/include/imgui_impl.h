@@ -6,4 +6,9 @@
 #define EXTERN
 #endif
 
+#define GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+EXTERN void main_loop(GLFWwindow *window);
 EXTERN int cpp_main();
