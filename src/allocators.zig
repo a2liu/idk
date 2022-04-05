@@ -159,24 +159,23 @@ pub const Temp = struct {
     }
 };
 
+pub const Frame = FrameAlloc.allocator;
+
+pub fn clearFrameAllocator() void {
+    FrameAlloc.mark = Mark.ZERO;
+}
+
 const FrameAlloc = struct {
     const InitialSize = 1024 * 1024;
     threadlocal var bump = BumpState.init(InitialSize);
     threadlocal var mark = Mark.ZERO;
 
-    fn allocate(_: *GlobalAlloc, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        return bump.allocate(&mark, Global, len, ptr_align, len_align, ret_addr);
-    }
-};
+    const allocator = Allocator.init(&GlobalAllocator, alloc, resize, free);
 
-var dummy_frame_alloc = FrameAlloc{};
-pub const Frame = frame_alloc: {
     const resize = Allocator.NoResize(GlobalAlloc).noResize;
     const free = Allocator.NoOpFree(GlobalAlloc).noOpFree;
 
-    break :frame_alloc Allocator.init(&GlobalAllocator, FrameAlloc.allocate, resize, free);
+    fn alloc(_: *GlobalAlloc, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
+        return bump.allocate(&mark, Global, len, ptr_align, len_align, ret_addr);
+    }
 };
-
-pub fn clearFrameAllocator() void {
-    FrameAlloc.mark = Mark.ZERO;
-}
