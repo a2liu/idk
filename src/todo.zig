@@ -62,22 +62,69 @@ pub fn todoApp(is_open: *bool) !void {
         try items.append(newItem);
     }
 
-    const flags = c.ImGuiInputTextFlags_CallbackResize;
+    // if (ImGui::BeginTable("table_advanced", 6, flags, outer_size_enabled ? outer_size_value : ImVec2(0, 0), inner_width_to_use))
 
-    for (items.items) |*item| {
-        const name = &item.name;
+    const ColSpec = struct {
+        label: [:0]const u8,
+        flags: c.ImGuiTableFlags = 0,
+        init_width_or_weight: f32 = 0,
+    };
 
-        c.igPushID_Int(item.id);
+    const columns = .{
+        ColSpec{
+            .label = "is_done",
+            .flags = c.ImGuiTableColumnFlags_WidthFixed | c.ImGuiTableColumnFlags_NoHide,
+            .init_width_or_weight = 20,
+        },
+        ColSpec{
+            .label = "name",
+            .flags = c.ImGuiTableColumnFlags_WidthStretch,
+        },
+    };
+    const table_flags = c.ImGuiTableFlags_Resizable | c.ImGuiTableFlags_Reorderable | c.ImGuiTableFlags_RowBg | c.ImGuiTableFlags_Borders | c.ImGuiTableFlags_NoBordersInBody | c.ImGuiTableFlags_ScrollY | c.ImGuiTableFlags_SizingFixedFit;
+    const size = .{ .x = 0, .y = 0 };
 
-        _ = c.igInputText(
-            "##",
-            name.items.ptr,
-            name.capacity,
-            flags,
-            textCallback,
-            name,
-        );
+    if (c.igBeginTable("##table", columns.len, table_flags, size, 0.0)) {
+        defer c.igEndTable();
 
-        c.igPopID();
+        inline for (columns) |col| {
+            c.igTableSetupColumn(col.label, col.flags, col.init_width_or_weight, 0);
+        }
+
+        // Use table, with Selectable & SpanAllColumns + AllowItemOverlap
+        for (items.items) |*item| {
+            c.igPushID_Int(item.id);
+
+            // checkbox
+            if (c.igTableNextColumn()) {
+                // const flags = c.ImGuiSelectableFlags_SpanAllColumns | c.ImGuiSelectableFlags_AllowItemOverlap;
+                // const dims = .{ .x = 0, .y = 0 };
+                // _ = c.igSelectable_Bool("##selectable", &item.is_done, flags, dims);
+
+                _ = c.igCheckbox("##is_done", &item.is_done);
+            }
+
+            // text
+            if (c.igTableNextColumn()) {
+                const flags = c.ImGuiInputTextFlags_CallbackResize;
+                const name = &item.name;
+                var region: c.ImVec2 = undefined;
+                c.igGetContentRegionAvail(&region);
+                c.igPushItemWidth(region.x);
+
+                _ = c.igInputText(
+                    "##name",
+                    name.items.ptr,
+                    name.capacity,
+                    flags,
+                    textCallback,
+                    name,
+                );
+
+                c.igPopItemWidth();
+            }
+
+            c.igPopID();
+        }
     }
 }
