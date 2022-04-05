@@ -12,8 +12,8 @@ pub fn build(b: *std.build.Builder) void {
     // for restricting supported target set are available.
     var target = b.standardTargetOptions(.{});
 
-    // I cannot get things to work on macbook M1 without doing this, plus
-    // a few other things in src/allocators.zig , and I don't really get why.
+    // I cannot get things to work on macbook M1 without doing this. Also,
+    // initializing threadlocal doesn't really work on MacOS it seems.
     target.cpu_arch = Arch.x86_64;
 
     // Standard release options allow the person running `zig build` to select
