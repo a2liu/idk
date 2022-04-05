@@ -1,4 +1,5 @@
 const std = @import("std");
+const Arch = std.Target.Cpu.Arch;
 
 const glfw = @import("libs/mach-glfw/build.zig");
 const vkgen = @import("libs/vulkan-zig/generator/index.zig");
@@ -9,7 +10,11 @@ pub fn build(b: *std.build.Builder) void {
     // what target to build for. Here we do not override the defaults, which
     // means any target is allowed, and the default is native. Other options
     // for restricting supported target set are available.
-    const target = b.standardTargetOptions(.{});
+    var target = b.standardTargetOptions(.{});
+
+    // I cannot get things to work on macbook M1 without doing this, plus
+    // a few other things in src/allocators.zig , and I don't really get why.
+    target.cpu_arch = Arch.x86_64;
 
     // Standard release options allow the person running `zig build` to select
     // between Debug, ReleaseSafe, ReleaseFast, and ReleaseSmall.

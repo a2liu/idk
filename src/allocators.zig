@@ -1,29 +1,31 @@
 const std = @import("std");
 const mem = std.mem;
+
 const assert = std.debug.assert;
+
 const Allocator = mem.Allocator;
-const ArrayList = std.ArrayList;
-
+// const ArrayList = std.ArrayList;
+const ByteList = std.ArrayListAlignedUnmanaged([]u8, null);
 const GlobalAlloc = std.heap.GeneralPurposeAllocator(.{});
-var GlobalAllocator: GlobalAlloc = .{};
 
+var GlobalAllocator: GlobalAlloc = .{};
 pub const Global = GlobalAllocator.allocator();
 pub const Pages = std.heap.page_allocator;
 
 const BumpState = struct {
-    ranges: ArrayList([]u8),
+    ranges: ByteList,
     next_size: usize,
 
     const Self = @This();
 
-    fn init(initial_size: usize, allocator: Allocator) Self {
+    fn init(initial_size: usize) Self {
         return .{
-            .ranges = ArrayList([]u8).init(allocator),
+            .ranges = ByteList{},
             .next_size = initial_size,
         };
     }
 
-    fn allocate(bump: *Self, mark: *Mark, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
+    fn allocate(bump: *Self, mark: *Mark, alloc: Allocator, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
         if (mark.range < bump.ranges.items.len) {
             const range = bump.ranges.items[mark.range];
 
@@ -41,9 +43,8 @@ const BumpState = struct {
 
         const size = @maximum(len, bump.next_size);
 
-        const alloc = bump.ranges.allocator;
         const slice = try alloc.rawAlloc(size, ptr_align, len_align, ret_addr);
-        try bump.ranges.append(slice);
+        try bump.ranges.append(alloc, slice);
 
         // grow the next arena, but keep it to at most 1GB please
         bump.next_size = size * 3 / 2;
@@ -69,23 +70,24 @@ pub const Mark = struct {
 pub const Bump = struct {
     bump: BumpState,
     mark: Mark,
+    alloc: Allocator,
 
     const Self = @This();
 
     pub fn init(initial_size: usize, alloc: Allocator) Self {
         return .{
-            .bump = BumpState.init(initial_size, alloc),
+            .bump = BumpState.init(initial_size),
             .mark = Mark.ZERO,
+            .alloc = alloc,
         };
     }
 
     pub fn deinit(self: *Self) void {
-        const alloc = self.bump.ranges.allocator;
         for (self.bump.ranges.items) |range| {
-            alloc.free(range);
+            self.alloc.free(range);
         }
 
-        self.bump.ranges.deinit();
+        self.bump.ranges.deinit(self.alloc);
     }
 
     pub fn allocator(self: *Self) Allocator {
@@ -96,7 +98,7 @@ pub const Bump = struct {
     }
 
     fn allocate(self: *Self, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        return self.bump.allocate(&self.mark, len, ptr_align, len_align, ret_addr);
+        return self.bump.allocate(&self.mark, self.alloc, len, ptr_align, len_align, ret_addr);
     }
 };
 
@@ -109,7 +111,7 @@ pub const Temp = struct {
     const InitialSize = 1024 * 1024 * 4;
 
     threadlocal var top: ?*Temp = null;
-    threadlocal var bump = BumpState.init(InitialSize, Global);
+    threadlocal var bump = BumpState.init(InitialSize);
 
     pub fn init() Self {
         var mark = Mark.ZERO;
@@ -153,22 +155,17 @@ pub const Temp = struct {
     }
 
     fn allocate(self: *Self, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        // Bruh what, why is this necessary
-        bump.ranges.allocator = Global;
-
-        return bump.allocate(&self.mark, len, ptr_align, len_align, ret_addr);
+        return bump.allocate(&self.mark, Global, len, ptr_align, len_align, ret_addr);
     }
 };
 
 const FrameAlloc = struct {
     const InitialSize = 1024 * 1024;
-    threadlocal var bump = Bump.init(InitialSize, Global);
+    threadlocal var bump = BumpState.init(InitialSize);
+    threadlocal var mark = Mark.ZERO;
 
     fn allocate(_: *GlobalAlloc, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        // Bruh what, why is this necessary
-        bump.bump.ranges.allocator = Global;
-
-        return bump.bump.allocate(&bump.mark, len, ptr_align, len_align, ret_addr);
+        return bump.allocate(&mark, Global, len, ptr_align, len_align, ret_addr);
     }
 };
 
@@ -181,5 +178,5 @@ pub const Frame = frame_alloc: {
 };
 
 pub fn clearFrameAllocator() void {
-    FrameAlloc.bump.mark = Mark.ZERO;
+    FrameAlloc.mark = Mark.ZERO;
 }

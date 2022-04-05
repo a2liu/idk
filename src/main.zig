@@ -59,6 +59,12 @@ fn navigator(meta: *OpenApps) void {
 }
 
 pub fn main() !void {
+    var _temp = alloc.Temp.init();
+    defer _temp.deinit();
+
+    const temp = _temp.allocator();
+    _ = temp;
+
     try glfw.init(.{});
     defer glfw.terminate();
 
