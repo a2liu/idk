@@ -92,15 +92,13 @@ pub fn todoApp(is_open: *bool) !void {
         }
 
         // Use table, with Selectable & SpanAllColumns + AllowItemOverlap
+        var text_col_avail_init = false;
+        var text_col_avail: c.ImVec2 = undefined;
         for (items.items) |*item| {
             c.igPushID_Int(item.id);
 
             // checkbox
             if (c.igTableNextColumn()) {
-                // const flags = c.ImGuiSelectableFlags_SpanAllColumns | c.ImGuiSelectableFlags_AllowItemOverlap;
-                // const dims = .{ .x = 0, .y = 0 };
-                // _ = c.igSelectable_Bool("##selectable", &item.is_done, flags, dims);
-
                 _ = c.igCheckbox("##is_done", &item.is_done);
             }
 
@@ -108,9 +106,11 @@ pub fn todoApp(is_open: *bool) !void {
             if (c.igTableNextColumn()) {
                 const flags = c.ImGuiInputTextFlags_CallbackResize;
                 const name = &item.name;
-                var region: c.ImVec2 = undefined;
-                c.igGetContentRegionAvail(&region);
-                c.igPushItemWidth(region.x);
+
+                if (!text_col_avail_init) {
+                    c.igGetContentRegionAvail(&text_col_avail);
+                }
+                c.igPushItemWidth(text_col_avail.x);
 
                 _ = c.igInputText(
                     "##name",
