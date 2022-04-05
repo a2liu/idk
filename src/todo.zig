@@ -91,9 +91,7 @@ pub fn todoApp(is_open: *bool) !void {
             c.igTableSetupColumn(col.label, col.flags, col.init_width_or_weight, 0);
         }
 
-        // Use table, with Selectable & SpanAllColumns + AllowItemOverlap
-        var text_col_avail_init = false;
-        var text_col_avail: c.ImVec2 = undefined;
+        var text_col_width: f32 = 0;
         for (items.items) |*item| {
             c.igPushID_Int(item.id);
 
@@ -104,13 +102,16 @@ pub fn todoApp(is_open: *bool) !void {
 
             // text
             if (c.igTableNextColumn()) {
+                if (text_col_width == 0) {
+                    var region: c.ImVec2 = undefined;
+                    c.igGetContentRegionAvail(&region);
+                    text_col_width = region.x;
+                }
+
                 const flags = c.ImGuiInputTextFlags_CallbackResize;
                 const name = &item.name;
 
-                if (!text_col_avail_init) {
-                    c.igGetContentRegionAvail(&text_col_avail);
-                }
-                c.igPushItemWidth(text_col_avail.x);
+                c.igPushItemWidth(text_col_width);
 
                 _ = c.igInputText(
                     "##name",
