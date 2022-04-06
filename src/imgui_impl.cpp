@@ -16,15 +16,11 @@
 // Read comments in imgui_impl_vulkan.h.
 
 #include "imgui_impl.h"
-#include "imgui.h"
+
 #include "imgui_impl_platform.h"
 #include "imgui_impl_render.h"
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-#include <vulkan/vulkan.h>
 
 // [Win32] Our example includes a copy of glfw3.lib pre-compiled with VS2010 to
 // maximize ease of testing and compatibility with old VS compilers. To link
@@ -37,17 +33,19 @@
 #pragma comment(lib, "legacy_stdio_definitions")
 #endif
 
+#define IMGUI_VULKAN_DEBUG_REPORT
+
 #ifdef _DEBUG
 #define IMGUI_VULKAN_DEBUG_REPORT
 #endif
 
 static VkAllocationCallbacks *g_Allocator = NULL;
-static VkInstance g_Instance = VK_NULL_HANDLE;
+VkInstance g_Instance = VK_NULL_HANDLE;
 static VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
 static VkDevice g_Device = VK_NULL_HANDLE;
 static uint32_t g_QueueFamily = (uint32_t)-1;
 static VkQueue g_Queue = VK_NULL_HANDLE;
-static VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
+VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
 static VkPipelineCache g_PipelineCache = VK_NULL_HANDLE;
 static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
 
@@ -62,8 +60,7 @@ static void check_vk_result(VkResult err) {
     abort();
 }
 
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
-static VKAPI_ATTR VkBool32 VKAPI_CALL
+VKAPI_ATTR VkBool32 VKAPI_CALL
 debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType,
              uint64_t object, size_t location, int32_t messageCode,
              const char *pLayerPrefix, const char *pMessage, void *pUserData) {
@@ -77,46 +74,9 @@ debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType,
           objectType, pMessage);
   return VK_FALSE;
 }
-#endif // IMGUI_VULKAN_DEBUG_REPORT
 
 void cpp_SetupVulkan(const char **extensions, uint32_t extensions_count) {
   VkResult err;
-
-  // Create Vulkan Instance
-  {
-    VkInstanceCreateInfo create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
-    create_info.enabledExtensionCount = extensions_count;
-    create_info.ppEnabledExtensionNames = extensions;
-
-    // Enabling validation layers
-    const char *layers[] = {"VK_LAYER_KHRONOS_validation"};
-    create_info.enabledLayerCount = 1;
-    create_info.ppEnabledLayerNames = layers;
-
-    // Create Vulkan Instance
-    err = vkCreateInstance(&create_info, g_Allocator, &g_Instance);
-    check_vk_result(err);
-
-    // Get the function pointer (required for any extensions)
-    auto vkCreateDebugReportCallbackEXT =
-        (PFN_vkCreateDebugReportCallbackEXT)vkGetInstanceProcAddr(
-            g_Instance, "vkCreateDebugReportCallbackEXT");
-    IM_ASSERT(vkCreateDebugReportCallbackEXT != NULL);
-
-    // Setup the debug report callback
-    VkDebugReportCallbackCreateInfoEXT debug_report_ci = {};
-    debug_report_ci.sType =
-        VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT;
-    debug_report_ci.flags = VK_DEBUG_REPORT_ERROR_BIT_EXT |
-                            VK_DEBUG_REPORT_WARNING_BIT_EXT |
-                            VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT;
-    debug_report_ci.pfnCallback = debug_report;
-    debug_report_ci.pUserData = NULL;
-    err = vkCreateDebugReportCallbackEXT(g_Instance, &debug_report_ci,
-                                         g_Allocator, &g_DebugReport);
-    check_vk_result(err);
-  }
 
   // Select GPU
   {

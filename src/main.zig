@@ -4,72 +4,72 @@ const glfw = @import("glfw");
 const gui = @import("gui.zig");
 const render = @import("render/mod.zig");
 const c = @import("c.zig");
+const app = @import("app.zig");
 
+// This file mostly contains plumbing to get this app to work.
 const app_name = "Dear ImGui GLFW+Vulkan example";
 
-const todoApp = @import("todo.zig").todoApp;
+fn checkVkResult(err: c.VkResult) void {
+    if (err == 0) return;
 
-const OpenApps = struct {
-    demo: bool = true,
-    todo: bool = true,
-};
-
-var float_value: f32 = 0.0;
-var counter_value: i32 = 0;
-var clear_color = c.ImVec4{ .x = 0.45, .y = 0.55, .z = 0.60, .w = 1.00 };
-
-fn navigator(meta: *OpenApps) void {
-    const pivot = .{ .x = 0, .y = 0 };
-    c.igSetNextWindowPos(.{ .x = 0, .y = 0 }, c.ImGuiCond_FirstUseEver, pivot);
-
-    // Create a window called "Hello, world!" and append into it.
-    _ = c.igBegin("Hello, world!", null, 0);
-    defer c.igEnd();
-
-    // Display some text (you can use a format strings too)
-    gui.Text("This is some useful text.", .{});
-
-    // Edit bools storing our window open/close state
-    _ = c.igCheckbox("Demo Window", &meta.demo);
-    _ = c.igCheckbox("Todo App", &meta.todo);
-
-    // Edit 1 float using a slider from 0.0f to 1.0f
-    // return value is whether value changed
-    _ = c.igSliderFloat("float", &float_value, 0.0, 1.0, "%.3f", 0);
-
-    // Edit 3 floats representing a color
-    _ = c.igColorEdit3("clear color", @ptrCast(*f32, &clear_color), 0);
-
-    // Buttons return true when clicked (most widgets return true when
-    // edited/activated)
-    if (c.igButton("Button", .{ .x = 0, .y = 0 })) {
-        counter_value += 1;
-    }
-
-    c.igSameLine(0.0, -1.0);
-    gui.Text("counter = {}", .{counter_value});
-
-    const io: [*c]volatile c.ImGuiIO = c.igGetIO();
-    const fps = io.*.Framerate;
-    const frame_time = 1000.0 / fps;
-    gui.Text(
-        "Application average {d:.3} ms/frame ({d:.1} FPS)",
-        .{ frame_time, fps },
-    );
+    std.debug.print("[vulkan] Error: VkResult = {}\n", .{err});
+    if (err < 0)
+        @panic("[vulkan] aborted");
 }
 
-pub fn setupVulkan() !void {
+fn setupVulkan() !void {
     var _temp = alloc.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
 
+    var err: c.VkResult = undefined;
+
+    const cstr = [*c]const u8;
+
     var count: u32 = 0;
     const glfw_ext = c.glfwGetRequiredInstanceExtensions(&count);
 
-    const ext = try temp.alloc([*c]const u8, count + 1);
-    std.mem.copy([*c]const u8, ext, glfw_ext[0..count]);
+    const ext = try temp.alloc(cstr, count + 1);
+    std.mem.copy(cstr, ext, glfw_ext[0..count]);
 
     ext[count] = "VK_EXT_debug_report";
+
+    const layers: []const cstr = &[_]cstr{"VK_LAYER_KHRONOS_validation"};
+    const create_info = c.VkInstanceCreateInfo{
+        .sType = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+        .enabledExtensionCount = count + 1,
+        .ppEnabledExtensionNames = ext.ptr,
+        .enabledLayerCount = 1,
+        .ppEnabledLayerNames = layers.ptr,
+        .pNext = null,
+        .flags = 0,
+        .pApplicationInfo = 0,
+    };
+
+    err = c.vkCreateInstance(&create_info, null, &c.g_Instance);
+    checkVkResult(err);
+
+    const callback = cb: {
+        const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, "vkCreateDebugReportCallbackEXT");
+        if (@ptrCast(c.PFN_vkCreateDebugReportCallbackEXT, raw_callback)) |cb| {
+            break :cb cb;
+        }
+
+        @panic("rip");
+    };
+
+    var debug_report_ci = c.VkDebugReportCallbackCreateInfoEXT{
+        .sType = c.VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+        .flags = c.VK_DEBUG_REPORT_ERROR_BIT_EXT |
+            c.VK_DEBUG_REPORT_WARNING_BIT_EXT |
+            c.VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
+        .pfnCallback = c.debug_report,
+        .pNext = null,
+        .pUserData = null,
+    };
+
+    err = callback(c.g_Instance, &debug_report_ci, null, &c.g_DebugReport);
+    checkVkResult(err);
 
     c.cpp_SetupVulkan(ext.ptr, count + 1);
 }
@@ -107,8 +107,6 @@ pub fn main() !void {
 
     c.cpp_init(handle);
 
-    var open_apps = OpenApps{};
-
     var rebuild_chain = false;
 
     while (!window.shouldClose()) {
@@ -133,18 +131,7 @@ pub fn main() !void {
         c.ImGui_ImplGlfw_NewFrame();
         c.igNewFrame();
 
-        navigator(&open_apps);
-
-        if (open_apps.demo) {
-            c.igShowDemoWindow(&open_apps.demo);
-        }
-
-        if (open_apps.todo) {
-            const pivot = .{ .x = 0, .y = 0 };
-            const point = .{ .x = 200, .y = 200 };
-            c.igSetNextWindowPos(point, c.ImGuiCond_FirstUseEver, pivot);
-            try todoApp(&open_apps.todo);
-        }
+        try app.run();
 
         c.igRender();
 
@@ -152,7 +139,7 @@ pub fn main() !void {
         const display_size = draw_data.*.DisplaySize;
         const is_minimized = display_size.x <= 0.0 or display_size.y <= 0.0;
         if (!is_minimized) {
-            rebuild_chain = c.cpp_render(handle, draw_data, clear_color);
+            rebuild_chain = c.cpp_render(handle, draw_data, app.clear_color);
         }
 
         std.time.sleep(1000 * 1000);
