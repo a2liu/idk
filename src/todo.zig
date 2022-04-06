@@ -113,6 +113,9 @@ pub fn todoApp(is_open: *bool) !void {
 
                 c.igPushItemWidth(text_col_width);
 
+                // @Safety the textCallback here uses the C calling convention,
+                // but I am unsure which calling convention imgui accepts for
+                // its callbacks.
                 _ = c.igInputText(
                     "##name",
                     name.items.ptr,
