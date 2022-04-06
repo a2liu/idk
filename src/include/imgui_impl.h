@@ -11,6 +11,7 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+EXTERN void cpp_SetupVulkan(const char **extensions, uint32_t extensions_count);
 EXTERN void cpp_resize_swapchain(GLFWwindow *window);
 EXTERN bool cpp_render(GLFWwindow *window, ImDrawData *draw_data,
                        ImVec4 clear_color);

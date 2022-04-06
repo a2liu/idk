@@ -58,13 +58,23 @@ fn navigator(meta: *OpenApps) void {
     );
 }
 
-pub fn main() !void {
+pub fn setupVulkan() !void {
     var _temp = alloc.Temp.init();
+    const temp = _temp.allocator();
     defer _temp.deinit();
 
-    const temp = _temp.allocator();
-    _ = temp;
+    var count: u32 = 0;
+    const glfw_ext = c.glfwGetRequiredInstanceExtensions(&count);
 
+    const ext = try temp.alloc([*c]const u8, count + 1);
+    std.mem.copy([*c]const u8, ext, glfw_ext[0..count]);
+
+    ext[count] = "VK_EXT_debug_report";
+
+    c.cpp_SetupVulkan(ext.ptr, count + 1);
+}
+
+pub fn main() !void {
     try glfw.init(.{});
     defer glfw.terminate();
 
@@ -82,6 +92,8 @@ pub fn main() !void {
     // They're the same struct type, but defined in different includes of the
     // same header
     const handle = @ptrCast(*c.struct_GLFWwindow, window.handle);
+
+    try setupVulkan();
 
     // Setup Dear ImGui context, return value is the context that's created
     _ = c.igCreateContext(null);

@@ -79,7 +79,7 @@ debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType,
 }
 #endif // IMGUI_VULKAN_DEBUG_REPORT
 
-static void SetupVulkan(const char **extensions, uint32_t extensions_count) {
+void cpp_SetupVulkan(const char **extensions, uint32_t extensions_count) {
   VkResult err;
 
   // Create Vulkan Instance
@@ -88,25 +88,15 @@ static void SetupVulkan(const char **extensions, uint32_t extensions_count) {
     create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     create_info.enabledExtensionCount = extensions_count;
     create_info.ppEnabledExtensionNames = extensions;
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
+
     // Enabling validation layers
     const char *layers[] = {"VK_LAYER_KHRONOS_validation"};
     create_info.enabledLayerCount = 1;
     create_info.ppEnabledLayerNames = layers;
 
-    // Enable debug report extension (we need additional storage, so we
-    // duplicate the user array to add our new extension to it)
-    const char **extensions_ext =
-        (const char **)malloc(sizeof(const char *) * (extensions_count + 1));
-    memcpy(extensions_ext, extensions, extensions_count * sizeof(const char *));
-    extensions_ext[extensions_count] = "VK_EXT_debug_report";
-    create_info.enabledExtensionCount = extensions_count + 1;
-    create_info.ppEnabledExtensionNames = extensions_ext;
-
     // Create Vulkan Instance
     err = vkCreateInstance(&create_info, g_Allocator, &g_Instance);
     check_vk_result(err);
-    free(extensions_ext);
 
     // Get the function pointer (required for any extensions)
     auto vkCreateDebugReportCallbackEXT =
@@ -126,12 +116,6 @@ static void SetupVulkan(const char **extensions, uint32_t extensions_count) {
     err = vkCreateDebugReportCallbackEXT(g_Instance, &debug_report_ci,
                                          g_Allocator, &g_DebugReport);
     check_vk_result(err);
-#else
-    // Create Vulkan Instance without any debug feature
-    err = vkCreateInstance(&create_info, g_Allocator, &g_Instance);
-    check_vk_result(err);
-    IM_UNUSED(g_DebugReport);
-#endif
   }
 
   // Select GPU
@@ -428,10 +412,10 @@ void cpp_init(GLFWwindow *window) {
   IMGUI_CHECKVERSION();
 
   // Setup Vulkan
-  uint32_t extensions_count = 0;
-  const char **extensions =
-      glfwGetRequiredInstanceExtensions(&extensions_count);
-  SetupVulkan(extensions, extensions_count);
+  // uint32_t extensions_count = 0;
+  // const char **extensions =
+  //     glfwGetRequiredInstanceExtensions(&extensions_count);
+  // cpp_SetupVulkan(extensions, extensions_count);
 
   // Create Window Surface
   VkSurfaceKHR surface;
