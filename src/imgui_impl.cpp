@@ -48,7 +48,7 @@ static void check_vk_result(VkResult err) {
     abort();
 }
 
-static bool FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
+bool FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
   VkResult err;
 
   VkSemaphore image_acquired_semaphore =
@@ -126,7 +126,7 @@ static bool FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
   return false;
 }
 
-static bool FramePresent(ImGui_ImplVulkanH_Window *wd) {
+bool FramePresent(ImGui_ImplVulkanH_Window *wd) {
   VkSemaphore render_complete_semaphore =
       wd->FrameSemaphores[wd->SemaphoreIndex].RenderCompleteSemaphore;
   VkPresentInfoKHR info = {};
@@ -147,32 +147,4 @@ static bool FramePresent(ImGui_ImplVulkanH_Window *wd) {
       wd->ImageCount; // Now we can use the next set of semaphores
 
   return false;
-}
-
-void cpp_resize_swapchain(GLFWwindow *window) {
-  int width, height;
-  glfwGetFramebufferSize(window, &width, &height);
-
-  if (width > 0 && height > 0) {
-    ImGui_ImplVulkan_SetMinImageCount(2);
-    ImGui_ImplVulkanH_CreateOrResizeWindow(
-        g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData,
-        g_QueueFamily, NULL, width, height, 2);
-    g_MainWindowData.FrameIndex = 0;
-  }
-}
-
-bool cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
-  ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
-
-  wd->ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-  wd->ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-  wd->ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-  wd->ClearValue.color.float32[3] = clear_color.w;
-
-  if (FrameRender(wd, draw_data)) {
-    return true;
-  }
-
-  return FramePresent(wd);
 }

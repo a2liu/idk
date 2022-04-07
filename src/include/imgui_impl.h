@@ -24,8 +24,5 @@ EXTERN VkQueue g_Queue;
 EXTERN VkDescriptorPool g_DescriptorPool;
 EXTERN ImGui_ImplVulkanH_Window g_MainWindowData;
 
-EXTERN void SetupVulkanWindow(VkSurfaceKHR surface, int width, int height);
-
-EXTERN void cpp_resize_swapchain(GLFWwindow *window);
-EXTERN bool cpp_render(GLFWwindow *window, ImDrawData *draw_data,
-                       ImVec4 clear_color);
+EXTERN bool FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data);
+EXTERN bool FramePresent(ImGui_ImplVulkanH_Window *wd);

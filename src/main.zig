@@ -377,9 +377,9 @@ pub fn main() !void {
         @panic("GLFW: Vulkan Not Supported\n");
     }
 
-    const width = 1280;
-    const height = 720;
-    const window = try glfw.Window.create(width, height, app_name, null, null, .{
+    const i_width = 1280;
+    const i_height = 720;
+    const window = try glfw.Window.create(i_width, i_height, app_name, null, null, .{
         .client_api = .no_api,
     });
     defer window.destroy();
@@ -398,7 +398,7 @@ pub fn main() !void {
         c.igStyleColorsDark(null); // Setup Dear ImGui style
     }
 
-    try setupVulkan(handle, width, height);
+    try setupVulkan(handle, i_width, i_height);
     defer teardownVulkan();
 
     var rebuild_chain = false;
@@ -424,7 +424,29 @@ pub fn main() !void {
         alloc.clearFrameAllocator();
 
         if (rebuild_chain) {
-            c.cpp_resize_swapchain(handle);
+            var width: c_int = undefined;
+            var height: c_int = undefined;
+
+            c.glfwGetFramebufferSize(handle, &width, &height);
+
+            if (width > 0 and height > 0) {
+                c.ImGui_ImplVulkan_SetMinImageCount(2);
+                c.ImGui_ImplVulkanH_CreateOrResizeWindow(
+                    c.g_Instance,
+                    c.g_PhysicalDevice,
+                    c.g_Device,
+                    &c.g_MainWindowData,
+                    c.g_QueueFamily,
+                    null,
+                    width,
+                    height,
+                    2,
+                );
+
+                c.g_MainWindowData.FrameIndex = 0;
+            }
+
+            rebuild_chain = false;
         }
 
         c.ImGui_ImplVulkan_NewFrame();
@@ -438,8 +460,22 @@ pub fn main() !void {
         const draw_data = c.igGetDrawData();
         const display_size = draw_data.*.DisplaySize;
         const is_minimized = display_size.x <= 0.0 or display_size.y <= 0.0;
+
         if (!is_minimized) {
-            rebuild_chain = c.cpp_render(handle, draw_data, state.clear_color);
+            const clear_color = state.clear_color;
+            const wd = &c.g_MainWindowData;
+            wd.ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+            wd.ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+            wd.ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+            wd.ClearValue.color.float32[3] = clear_color.w;
+
+            // rebuild_chain = c.cpp_render(handle, draw_data, state.clear_color);
+            if (c.FrameRender(wd, draw_data)) {
+                rebuild_chain = true;
+                continue;
+            }
+
+            rebuild_chain = c.FramePresent(wd);
         }
     }
 }
