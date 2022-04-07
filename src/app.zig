@@ -51,7 +51,7 @@ fn navigator(state: *AppState) void {
     gui.Text("counter = {}", .{state.counter_value});
 
     {
-        const io: [*c]volatile c.ImGuiIO = c.igGetIO();
+        const io: [*c]c.ImGuiIO = c.igGetIO();
         const fps = io.*.Framerate;
         const frame_time = 1000.0 / fps;
         gui.Text(
