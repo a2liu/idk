@@ -619,12 +619,12 @@ static bool ImGui_ImplGlfw_Init(GLFWwindow *window, bool install_callbacks,
   ImGui_ImplGlfw_Data *bd = IM_NEW(ImGui_ImplGlfw_Data)();
   io.BackendPlatformUserData = (void *)bd;
   io.BackendPlatformName = "imgui_impl_glfw";
-  io.BackendFlags |=
-      ImGuiBackendFlags_HasMouseCursors; // We can honor GetMouseCursor() values
-                                         // (optional)
-  io.BackendFlags |=
-      ImGuiBackendFlags_HasSetMousePos; // We can honor io.WantSetMousePos
-                                        // requests (optional, rarely used)
+
+  // We can honor GetMouseCursor() values (optional)
+  io.BackendFlags |= ImGuiBackendFlags_HasMouseCursors;
+
+  // We can honor io.WantSetMousePos requests (optional, rarely used)
+  io.BackendFlags |= ImGuiBackendFlags_HasSetMousePos;
 
   bd->Window = window;
   bd->Time = 0.0;

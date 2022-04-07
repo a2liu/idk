@@ -393,6 +393,7 @@ fn setupVulkan(window: glfw.Window, width: c_int, height: c_int) !void {
 
         err = c.vkDeviceWaitIdle(g_Device);
         checkVkResult(err);
+
         c.ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
 }
