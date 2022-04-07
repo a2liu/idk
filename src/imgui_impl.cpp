@@ -35,10 +35,6 @@
 
 #define IMGUI_VULKAN_DEBUG_REPORT
 
-#ifdef _DEBUG
-#define IMGUI_VULKAN_DEBUG_REPORT
-#endif
-
 static VkAllocationCallbacks *g_Allocator = NULL;
 VkInstance g_Instance = VK_NULL_HANDLE;
 VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
@@ -47,7 +43,7 @@ uint32_t g_QueueFamily = (uint32_t)-1;
 VkQueue g_Queue = VK_NULL_HANDLE;
 VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
 static VkPipelineCache g_PipelineCache = VK_NULL_HANDLE;
-static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
+VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
 
 static ImGui_ImplVulkanH_Window g_MainWindowData;
 static int g_MinImageCount = 2;
@@ -75,39 +71,11 @@ debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType,
   return VK_FALSE;
 }
 
-void cpp_SetupVulkan() {
-  VkResult err;
-
-  // Create Descriptor Pool
-  {
-    VkDescriptorPoolSize pool_sizes[] = {
-        {VK_DESCRIPTOR_TYPE_SAMPLER, 1000},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1000},
-        {VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1000},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 1000},
-        {VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1000},
-        {VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1000},
-        {VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 1000}};
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1000 * IM_ARRAYSIZE(pool_sizes);
-    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-    pool_info.pPoolSizes = pool_sizes;
-    err = vkCreateDescriptorPool(g_Device, &pool_info, g_Allocator,
-                                 &g_DescriptorPool);
-    check_vk_result(err);
-  }
-}
-
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
 // by the demo. Your real engine/app may not use them.
-static void SetupVulkanWindow(ImGui_ImplVulkanH_Window *wd,
-                              VkSurfaceKHR surface, int width, int height) {
+void SetupVulkanWindow(VkSurfaceKHR surface, int width, int height) {
+  ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
+
   wd->Surface = surface;
 
   // Check for WSI support
@@ -149,13 +117,11 @@ static void SetupVulkanWindow(ImGui_ImplVulkanH_Window *wd,
 static void CleanupVulkan() {
   vkDestroyDescriptorPool(g_Device, g_DescriptorPool, g_Allocator);
 
-#ifdef IMGUI_VULKAN_DEBUG_REPORT
   // Remove the debug report callback
   auto vkDestroyDebugReportCallbackEXT =
       (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(
           g_Instance, "vkDestroyDebugReportCallbackEXT");
   vkDestroyDebugReportCallbackEXT(g_Instance, g_DebugReport, g_Allocator);
-#endif // IMGUI_VULKAN_DEBUG_REPORT
 
   vkDestroyDevice(g_Device, g_Allocator);
   vkDestroyInstance(g_Instance, g_Allocator);
@@ -302,17 +268,9 @@ bool cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
 void cpp_init(GLFWwindow *window) {
   IMGUI_CHECKVERSION();
 
-  // Create Window Surface
-  VkSurfaceKHR surface;
-  VkResult err =
-      glfwCreateWindowSurface(g_Instance, window, g_Allocator, &surface);
-  check_vk_result(err);
+  VkResult err;
 
-  // Create Framebuffers
-  int w, h;
-  glfwGetFramebufferSize(window, &w, &h);
   ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
-  SetupVulkanWindow(wd, surface, w, h);
 
   // Setup Platform/Renderer backends
   ImGui_ImplGlfw_InitForVulkan(window, true);

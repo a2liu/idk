@@ -17,7 +17,7 @@ fn checkVkResult(err: c.VkResult) void {
         @panic("[vulkan] aborted");
 }
 
-fn setupVulkan() !void {
+fn setupVulkan(window: *c.GLFWwindow) !void {
     var _temp = alloc.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
@@ -51,7 +51,8 @@ fn setupVulkan() !void {
         checkVkResult(err);
 
         const callback = cb: {
-            const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, "vkCreateDebugReportCallbackEXT");
+            const name = "vkCreateDebugReportCallbackEXT";
+            const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, name);
             if (@ptrCast(c.PFN_vkCreateDebugReportCallbackEXT, raw_callback)) |cb| {
                 break :cb cb;
             }
@@ -91,9 +92,11 @@ fn setupVulkan() !void {
         for (gpus) |gpu| {
             var properties: c.VkPhysicalDeviceProperties = undefined;
             c.vkGetPhysicalDeviceProperties(gpu, &properties);
-            if (properties.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-                break :select_gpu gpu;
-            }
+
+            if (properties.deviceType != c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU)
+                continue;
+
+            break :select_gpu gpu;
         }
 
         break :select_gpu gpus[0];
@@ -152,7 +155,46 @@ fn setupVulkan() !void {
         c.vkGetDeviceQueue(c.g_Device, c.g_QueueFamily, 0, &c.g_Queue);
     }
 
-    c.cpp_SetupVulkan();
+    {
+        const pool_sizes = [_]c.VkDescriptorPoolSize{
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, .descriptorCount = 1000 },
+            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, .descriptorCount = 1000 },
+        };
+
+        const pool_info = c.VkDescriptorPoolCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
+            .flags = c.VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT,
+            .maxSets = 1000 * pool_sizes.len,
+            .poolSizeCount = pool_sizes.len,
+            .pPoolSizes = &pool_sizes,
+            .pNext = null,
+        };
+        err = c.vkCreateDescriptorPool(c.g_Device, &pool_info, null, &c.g_DescriptorPool);
+        checkVkResult(err);
+    }
+
+    {
+        // Create Window Surface
+        var surface: c.VkSurfaceKHR = undefined;
+        err = c.glfwCreateWindowSurface(c.g_Instance, window, null, &surface);
+        checkVkResult(err);
+
+        // Create Framebuffers
+        var w: c_int = undefined;
+        var h: c_int = undefined;
+        c.glfwGetFramebufferSize(window, &w, &h);
+
+        c.SetupVulkanWindow(surface, w, h);
+    }
 }
 
 pub fn main() !void {
@@ -174,7 +216,7 @@ pub fn main() !void {
     // same header
     const handle = @ptrCast(*c.struct_GLFWwindow, window.handle);
 
-    try setupVulkan();
+    try setupVulkan(handle);
 
     // Setup Dear ImGui context, return value is the context that's created
     _ = c.igCreateContext(null);
