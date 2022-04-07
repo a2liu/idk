@@ -11,6 +11,15 @@ const app = @import("app.zig");
 const app_name = "Dear ImGui GLFW+Vulkan example";
 const cstr = [*c]const u8;
 
+var g_Instance: c.VkInstance = null;
+var g_PhysicalDevice: c.VkPhysicalDevice = null;
+var g_Device: c.VkDevice = null;
+var g_QueueFamily: u32 = @bitCast(u32, -1);
+var g_Queue: c.VkQueue = null;
+var g_DebugReport: c.VkDebugReportCallbackEXT = null;
+var g_DescriptorPool: c.VkDescriptorPool = null;
+var g_MainWindowData: c.ImGui_ImplVulkanH_Window = .{};
+
 fn checkVkResult(err: c.VkResult) callconv(.C) void {
     if (err == 0) return;
 
@@ -342,6 +351,123 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     }
 }
 
+fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
+    var err: c.VkResult = undefined;
+
+    const semaphores = wd.FrameSemaphores[wd.SemaphoreIndex];
+    var image_acquired_semaphore = semaphores.ImageAcquiredSemaphore;
+    var render_complete_semaphore = semaphores.RenderCompleteSemaphore;
+    _ = draw_data;
+    _ = render_complete_semaphore;
+
+    const U64_MAX = std.math.maxInt(u64);
+
+    err = c.vkAcquireNextImageKHR(c.g_Device, wd.Swapchain, U64_MAX, image_acquired_semaphore, null, &wd.FrameIndex);
+
+    if (err == c.VK_ERROR_OUT_OF_DATE_KHR or err == c.VK_SUBOPTIMAL_KHR) {
+        return true;
+    }
+
+    checkVkResult(err);
+
+    const fd = &wd.Frames[wd.FrameIndex];
+
+    {
+        // wait indefinitely instead of periodically checking
+        err = c.vkWaitForFences(c.g_Device, 1, &fd.Fence, c.VK_TRUE, U64_MAX);
+        checkVkResult(err);
+
+        err = c.vkResetFences(c.g_Device, 1, &fd.Fence);
+        checkVkResult(err);
+    }
+
+    {
+        err = c.vkResetCommandPool(c.g_Device, fd.CommandPool, 0);
+        checkVkResult(err);
+        var info = c.VkCommandBufferBeginInfo{
+            .sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pInheritanceInfo = null,
+            .pNext = null,
+        };
+
+        err = c.vkBeginCommandBuffer(fd.CommandBuffer, &info);
+        checkVkResult(err);
+    }
+
+    {
+        const extent = .{
+            .width = std.math.cast(u32, wd.Width) catch @panic("whoops"),
+            .height = std.math.cast(u32, wd.Height) catch @panic("whoops"),
+        };
+        var info = c.VkRenderPassBeginInfo{
+            .sType = c.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+            .renderPass = wd.RenderPass,
+            .framebuffer = fd.Framebuffer,
+            .clearValueCount = 1,
+            .pClearValues = &wd.ClearValue,
+            .renderArea = .{
+                .extent = extent,
+                .offset = .{ .x = 0, .y = 0 },
+            },
+            .pNext = null,
+        };
+
+        c.vkCmdBeginRenderPass(fd.CommandBuffer, &info, c.VK_SUBPASS_CONTENTS_INLINE);
+    }
+
+    // Record dear imgui primitives into command buffer
+    c.ImGui_ImplVulkan_RenderDrawData(draw_data, fd.CommandBuffer, null);
+
+    // Submit command buffer
+    c.vkCmdEndRenderPass(fd.CommandBuffer);
+    {
+        const wait_stage: u32 =
+            c.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        var info = c.VkSubmitInfo{
+            .sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &image_acquired_semaphore,
+            .pWaitDstStageMask = &wait_stage,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &fd.CommandBuffer,
+            .signalSemaphoreCount = 1,
+            .pSignalSemaphores = &render_complete_semaphore,
+            .pNext = null,
+        };
+
+        err = c.vkEndCommandBuffer(fd.CommandBuffer);
+        checkVkResult(err);
+        err = c.vkQueueSubmit(c.g_Queue, 1, &info, fd.Fence);
+        checkVkResult(err);
+    }
+
+    {
+        const info = c.VkPresentInfoKHR{
+            .sType = c.VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+            .waitSemaphoreCount = 1,
+            .pWaitSemaphores = &render_complete_semaphore,
+            .swapchainCount = 1,
+            .pSwapchains = &wd.Swapchain,
+            .pImageIndices = &wd.FrameIndex,
+            .pNext = null,
+            .pResults = null,
+        };
+
+        err = c.vkQueuePresentKHR(c.g_Queue, &info);
+        if (err == c.VK_ERROR_OUT_OF_DATE_KHR or err == c.VK_SUBOPTIMAL_KHR) {
+            return true;
+        }
+
+        checkVkResult(err);
+
+        // Now we can use the next set of semaphores
+        wd.SemaphoreIndex = (wd.SemaphoreIndex + 1) % wd.ImageCount;
+    }
+
+    return false;
+}
+
 fn teardownVulkan() void {
     const err = c.vkDeviceWaitIdle(c.g_Device);
     checkVkResult(err);
@@ -469,13 +595,7 @@ pub fn main() !void {
             wd.ClearValue.color.float32[2] = clear_color.z * clear_color.w;
             wd.ClearValue.color.float32[3] = clear_color.w;
 
-            // rebuild_chain = c.cpp_render(handle, draw_data, state.clear_color);
-            if (c.FrameRender(wd, draw_data)) {
-                rebuild_chain = true;
-                continue;
-            }
-
-            rebuild_chain = c.FramePresent(wd);
+            rebuild_chain = renderFrame(wd, draw_data);
         }
     }
 }
