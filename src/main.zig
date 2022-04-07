@@ -249,15 +249,13 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             c.VK_PRESENT_MODE_FIFO_KHR,
         };
         wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(c.g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
-        // printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
 
         // Create SwapChain, RenderPass, Framebuffer, etc.
         c.ImGui_ImplVulkanH_CreateOrResizeWindow(c.g_Instance, c.g_PhysicalDevice, c.g_Device, wd, c.g_QueueFamily, null, width, height, 2);
     }
 
+    // Setup Platform/Renderer backends
     {
-
-        // Setup Platform/Renderer backends
         _ = c.ImGui_ImplGlfw_InitForVulkan(window, true);
         var init_info = c.ImGui_ImplVulkan_InitInfo{
             .Instance = c.g_Instance,
@@ -269,12 +267,12 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             .DescriptorPool = c.g_DescriptorPool,
             .Subpass = 0,
             .MinImageCount = 2,
-            .ImageCount = wd.*.ImageCount,
+            .ImageCount = wd.ImageCount,
             .MSAASamples = c.VK_SAMPLE_COUNT_1_BIT,
             .Allocator = null,
             .CheckVkResultFn = checkVkResult,
         };
-        _ = c.ImGui_ImplVulkan_Init(&init_info, wd.*.RenderPass);
+        _ = c.ImGui_ImplVulkan_Init(&init_info, wd.RenderPass);
     }
 
     // Load Fonts
@@ -303,7 +301,7 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     {
 
         // Use any command queue
-        const frame = wd.*.Frames[wd.*.FrameIndex];
+        const frame = wd.Frames[wd.FrameIndex];
         const command_pool = frame.CommandPool;
         const command_buffer = frame.CommandBuffer;
 
