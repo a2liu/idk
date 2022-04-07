@@ -1,6 +1,7 @@
 const std = @import("std");
 const alloc = @import("./allocators.zig");
 const glfw = @import("glfw");
+const util = @import("util.zig");
 const gui = @import("gui.zig");
 const render = @import("render/mod.zig");
 const c = @import("c.zig");
@@ -403,7 +404,12 @@ pub fn main() !void {
 
     var rebuild_chain = false;
 
+    var timer = util.SimulationTimer.init();
+
     while (!window.shouldClose()) {
+        const delta = timer.frameTimeDelta();
+        _ = delta;
+
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
         // tell if dear imgui wants to use your inputs.
@@ -436,7 +442,7 @@ pub fn main() !void {
             rebuild_chain = c.cpp_render(handle, draw_data, app.clear_color);
         }
 
-        std.time.sleep(14 * 1000 * 1000);
+        // std.time.sleep(14 * 1000 * 1000);
     }
 
     teardown();

@@ -13,10 +13,10 @@ pub const Global = GlobalAllocator.allocator();
 pub const Pages = std.heap.page_allocator;
 
 const BumpState = struct {
+    const Self = @This();
+
     ranges: ByteList,
     next_size: usize,
-
-    const Self = @This();
 
     fn init(initial_size: usize) Self {
         return .{
@@ -68,11 +68,11 @@ pub const Mark = struct {
 };
 
 pub const Bump = struct {
+    const Self = @This();
+
     bump: BumpState,
     mark: Mark,
     alloc: Allocator,
-
-    const Self = @This();
 
     pub fn init(initial_size: usize, alloc: Allocator) Self {
         return .{
@@ -103,10 +103,10 @@ pub const Bump = struct {
 };
 
 pub const Temp = struct {
+    const Self = @This();
+
     mark: Mark,
     previous: ?*Self,
-
-    const Self = @This();
 
     const InitialSize = 1024 * 1024;
 
