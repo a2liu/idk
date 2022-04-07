@@ -32,7 +32,9 @@ pub const SimulationTimer = struct {
     pub fn frameTimeDelta(self: *Self) u32 {
         const nano_elapsed = self.timer.lap();
 
-        const ms_elapsed = cast(u32, nano_elapsed / 1000000) catch @panic("frame took too long");
+        const ms_elapsed = cast(u32, nano_elapsed / 1_000_000) catch {
+            @panic("frame took too long");
+        };
 
         // These multiplications mean that if we have around a 10% margin, we
         // should just run another frame immediately, instead of trying to
