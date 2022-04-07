@@ -212,16 +212,46 @@ fn setupVulkan(window: glfw.Window, width: c_int, height: c_int) !void {
     {
         const pool_sizes = [_]c.VkDescriptorPoolSize{
             .{ .@"type" = c.VK_DESCRIPTOR_TYPE_SAMPLER, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, .descriptorCount = 1000 },
-            .{ .@"type" = c.VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, .descriptorCount = 1000 },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC,
+                .descriptorCount = 1000,
+            },
+            .{
+                .@"type" = c.VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT,
+                .descriptorCount = 1000,
+            },
         };
 
         const pool_info = c.VkDescriptorPoolCreateInfo{
