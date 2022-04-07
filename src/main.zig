@@ -300,9 +300,9 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     // io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
     // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
     {
+        const frame = wd.Frames[wd.FrameIndex];
 
         // Use any command queue
-        const frame = wd.Frames[wd.FrameIndex];
         const command_pool = frame.CommandPool;
         const command_buffer = frame.CommandBuffer;
 
@@ -342,7 +342,7 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     }
 }
 
-fn teardown() void {
+fn teardownVulkan() void {
     const err = c.vkDeviceWaitIdle(c.g_Device);
     checkVkResult(err);
 
@@ -399,16 +399,16 @@ pub fn main() !void {
     }
 
     try setupVulkan(handle, width, height);
-
-    // c.cpp_init(handle);
+    defer teardownVulkan();
 
     var rebuild_chain = false;
 
-    var timer = util.SimulationTimer.init();
+    var state = app.AppState{};
+    var timer = util.SimTimer.init();
 
     while (!window.shouldClose()) {
-        const delta = timer.frameTimeDelta();
-        _ = delta;
+        state.frameDelta = timer.frameTimeMs();
+        state.computeDelta = timer.prevFrameComputeMs();
 
         // Poll and handle events (inputs, window resize, etc.)
         // You can read the io.WantCaptureMouse, io.WantCaptureKeyboard flags to
@@ -431,7 +431,7 @@ pub fn main() !void {
         c.ImGui_ImplGlfw_NewFrame();
         c.igNewFrame();
 
-        try app.run();
+        try app.run(&state);
 
         c.igRender();
 
@@ -439,11 +439,7 @@ pub fn main() !void {
         const display_size = draw_data.*.DisplaySize;
         const is_minimized = display_size.x <= 0.0 or display_size.y <= 0.0;
         if (!is_minimized) {
-            rebuild_chain = c.cpp_render(handle, draw_data, app.clear_color);
+            rebuild_chain = c.cpp_render(handle, draw_data, state.clear_color);
         }
-
-        // std.time.sleep(14 * 1000 * 1000);
     }
-
-    teardown();
 }

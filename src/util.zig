@@ -6,7 +6,7 @@ const Instant = time.Instant;
 
 const cast = std.math.cast;
 
-pub const SimulationTimer = struct {
+pub const SimTimer = struct {
     const Self = @This();
 
     const TrialCount: usize = 32;
@@ -14,12 +14,12 @@ pub const SimulationTimer = struct {
 
     timer: Timer,
     begin: usize,
-    trials: [TrialCount]u32,
+    trials: [TrialCount]f32,
 
     pub fn init() Self {
         const timer = Timer.start() catch @panic("wtf?");
 
-        var trials = [_]u32{0} ** TrialCount;
+        var trials = [_]f32{0} ** TrialCount;
         trials[0] = TargetDelta;
 
         return .{
@@ -29,26 +29,33 @@ pub const SimulationTimer = struct {
         };
     }
 
-    pub fn frameTimeDelta(self: *Self) u32 {
-        const nano_elapsed = self.timer.lap();
-
-        const ms_elapsed = cast(u32, nano_elapsed / 1_000_000) catch {
-            @panic("frame took too long");
-        };
+    pub fn frameTimeMs(self: *Self) f32 {
+        const nano_compute = self.timer.lap();
+        var nano_frame = nano_compute;
 
         // These multiplications mean that if we have around a 10% margin, we
         // should just run another frame immediately, instead of trying to
         // sleep.
-        if (10 * nano_elapsed < 9 * TargetDelta) {
-            time.sleep(TargetDelta - nano_elapsed);
-            self.timer.reset();
+        if (10 * nano_compute < 9 * TargetDelta) {
+            time.sleep(TargetDelta - nano_frame);
+
+            nano_frame += self.timer.lap();
         }
+
+        const ms_compute = @intToFloat(f32, nano_compute) / 1_000_000;
+        const ms_frame = @intToFloat(f32, nano_frame) / 1_000_000;
 
         const index = self.begin % self.trials.len;
         self.begin = index + 1;
 
-        self.trials[index] = ms_elapsed;
+        self.trials[index] = ms_compute;
 
-        return ms_elapsed;
+        return ms_frame;
+    }
+
+    pub fn prevFrameComputeMs(self: *Self) f32 {
+        const index = (self.begin - 1) % self.trials.len;
+
+        return self.trials[index];
     }
 };
