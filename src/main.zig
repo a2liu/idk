@@ -8,6 +8,7 @@ const app = @import("app.zig");
 
 // This file mostly contains plumbing to get this app to work.
 const app_name = "Dear ImGui GLFW+Vulkan example";
+const cstr = [*c]const u8;
 
 fn checkVkResult(err: c.VkResult) callconv(.C) void {
     if (err == 0) return;
@@ -17,14 +18,38 @@ fn checkVkResult(err: c.VkResult) callconv(.C) void {
         @panic("[vulkan] aborted");
 }
 
+// This *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C macros.
+// Unsure where they go here.
+//                              - Albert Liu, Apr 06, 2022 Wed 23:58 EDT
+fn debug_report(
+    flags: c.VkDebugReportFlagsEXT,
+    objectType: c.VkDebugReportObjectTypeEXT,
+    object: u64,
+    location: usize,
+    messageCode: i32,
+    pLayerPrefix: cstr,
+    pMessage: cstr,
+    pUserData: ?*anyopaque,
+) callconv(.C) c.VkBool32 {
+    _ = flags;
+    _ = object;
+    _ = location;
+    _ = messageCode;
+    _ = pLayerPrefix;
+    _ = pUserData;
+
+    const fmt = "[vulkan] Debug report from ObjectType: {}\nMessage: {s}\n\n";
+    std.debug.print(fmt, .{ objectType, pMessage });
+
+    return c.VK_FALSE;
+}
+
 fn setupVulkan(window: *c.GLFWwindow) !void {
     var _temp = alloc.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
 
     var err: c.VkResult = undefined;
-
-    const cstr = [*c]const u8;
 
     {
         var count: u32 = 0;
@@ -65,7 +90,7 @@ fn setupVulkan(window: *c.GLFWwindow) !void {
             .flags = c.VK_DEBUG_REPORT_ERROR_BIT_EXT |
                 c.VK_DEBUG_REPORT_WARNING_BIT_EXT |
                 c.VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
-            .pfnCallback = c.debug_report,
+            .pfnCallback = debug_report,
             .pNext = null,
             .pUserData = null,
         };
