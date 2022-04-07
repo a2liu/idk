@@ -108,7 +108,7 @@ pub const Temp = struct {
 
     const Self = @This();
 
-    const InitialSize = 1024 * 1024 * 4;
+    const InitialSize = 1024 * 1024;
 
     threadlocal var top: ?*Temp = null;
     threadlocal var bump = BumpState.init(InitialSize);
@@ -166,7 +166,7 @@ pub fn clearFrameAllocator() void {
 }
 
 const FrameAlloc = struct {
-    const InitialSize = 1024 * 1024;
+    const InitialSize = 4 * 1024 * 1024;
     threadlocal var bump = BumpState.init(InitialSize);
     threadlocal var mark = Mark.ZERO;
 
