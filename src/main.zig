@@ -18,8 +18,8 @@ fn checkVkResult(err: c.VkResult) callconv(.C) void {
         @panic("[vulkan] aborted");
 }
 
-// This *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C macros.
-// Unsure where they go here.
+// This maybe *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C
+// macros. Unsure where they go here.
 //                              - Albert Liu, Apr 06, 2022 Wed 23:58 EDT
 fn debug_report(
     flags: c.VkDebugReportFlagsEXT,
@@ -44,7 +44,9 @@ fn debug_report(
     return c.VK_FALSE;
 }
 
-fn setupVulkan(window: *c.GLFWwindow) !void {
+// All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
+// by the demo. Your real engine/app may not use them.
+fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     var _temp = alloc.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
@@ -207,6 +209,8 @@ fn setupVulkan(window: *c.GLFWwindow) !void {
         checkVkResult(err);
     }
 
+    const wd = &c.g_MainWindowData;
+
     {
         // Create Window Surface
         var surface: c.VkSurfaceKHR = undefined;
@@ -218,11 +222,40 @@ fn setupVulkan(window: *c.GLFWwindow) !void {
         var h: c_int = undefined;
         c.glfwGetFramebufferSize(window, &w, &h);
 
-        c.SetupVulkanWindow(surface, w, h);
+        wd.Surface = surface;
+
+        // Check for WSI support
+        var res: c.VkBool32 = undefined;
+        _ = c.vkGetPhysicalDeviceSurfaceSupportKHR(c.g_PhysicalDevice, c.g_QueueFamily, wd.Surface, &res);
+        if (res != c.VK_TRUE) {
+            @panic("Error no WSI support on physical device 0\n");
+        }
+
+        const imageFormat = [_]c.VkFormat{
+            c.VK_FORMAT_B8G8R8A8_UNORM, c.VK_FORMAT_R8G8B8A8_UNORM,
+            c.VK_FORMAT_B8G8R8_UNORM,   c.VK_FORMAT_R8G8B8_UNORM,
+        };
+        const colorSpace = c.VK_COLORSPACE_SRGB_NONLINEAR_KHR;
+        wd.SurfaceFormat = c.ImGui_ImplVulkanH_SelectSurfaceFormat(
+            c.g_PhysicalDevice,
+            wd.Surface,
+            &imageFormat,
+            imageFormat.len,
+            colorSpace,
+        );
+
+        const present_modes = [_]c.VkPresentModeKHR{
+            c.VK_PRESENT_MODE_MAILBOX_KHR, c.VK_PRESENT_MODE_IMMEDIATE_KHR,
+            c.VK_PRESENT_MODE_FIFO_KHR,
+        };
+        wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(c.g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
+        // printf("[vulkan] Selected PresentMode = %d\n", wd->PresentMode);
+
+        // Create SwapChain, RenderPass, Framebuffer, etc.
+        c.ImGui_ImplVulkanH_CreateOrResizeWindow(c.g_Instance, c.g_PhysicalDevice, c.g_Device, wd, c.g_QueueFamily, null, width, height, 2);
     }
 
     {
-        const wd = &c.g_MainWindowData;
 
         // Setup Platform/Renderer backends
         _ = c.ImGui_ImplGlfw_InitForVulkan(window, true);
@@ -268,7 +301,6 @@ fn setupVulkan(window: *c.GLFWwindow) !void {
     // io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
     // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
     {
-        const wd = &c.g_MainWindowData;
 
         // Use any command queue
         const frame = wd.*.Frames[wd.*.FrameIndex];
@@ -367,7 +399,7 @@ pub fn main() !void {
         c.igStyleColorsDark(null); // Setup Dear ImGui style
     }
 
-    try setupVulkan(handle);
+    try setupVulkan(handle, width, height);
 
     // c.cpp_init(handle);
 
