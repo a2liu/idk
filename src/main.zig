@@ -74,36 +74,33 @@ fn setupVulkan() !void {
     }
 
     // Select GPU
-    {
-        var gpu_count: u32 = 0;
-        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &gpu_count, null);
+    c.g_PhysicalDevice = select_gpu: {
+        var count: u32 = 0;
+        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &count, null);
         checkVkResult(err);
-        std.debug.assert(gpu_count > 0);
+        std.debug.assert(count > 0);
 
-        const gpus = try temp.alloc(c.VkPhysicalDevice, gpu_count);
-        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &gpu_count, gpus.ptr);
+        const gpus = try temp.alloc(c.VkPhysicalDevice, count);
+        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &count, gpus.ptr);
         checkVkResult(err);
 
         // If a number >1 of GPUs got reported, find discrete GPU if present, or use
         // first one available. This covers most common cases
         // (multi-gpu/integrated+dedicated graphics). Handling more complicated
         // setups (multiple dedicated GPUs) is out of scope of this sample.
-        var use_gpu: usize = 0;
-        var i: usize = 0;
-        while (i < gpu_count) : (i += 1) {
+        for (gpus) |gpu| {
             var properties: c.VkPhysicalDeviceProperties = undefined;
-            c.vkGetPhysicalDeviceProperties(gpus[i], &properties);
+            c.vkGetPhysicalDeviceProperties(gpu, &properties);
             if (properties.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-                use_gpu = i;
-                break;
+                break :select_gpu gpu;
             }
         }
 
-        c.g_PhysicalDevice = gpus[use_gpu];
-    }
+        break :select_gpu gpus[0];
+    };
 
     // Select graphics queue family
-    queue_family: {
+    c.g_QueueFamily = queue_family: {
         const getProperties = c.vkGetPhysicalDeviceQueueFamilyProperties;
 
         var count: u32 = 0;
@@ -111,18 +108,15 @@ fn setupVulkan() !void {
         const queues = try temp.alloc(c.VkQueueFamilyProperties, count);
         getProperties(c.g_PhysicalDevice, &count, queues.ptr);
 
-        var i: u32 = 0;
-
-        while (i < count) : (i += 1) {
-            const mask = queues[i].queueFlags & c.VK_QUEUE_GRAPHICS_BIT;
+        for (queues) |queue, i| {
+            const mask = queue.queueFlags & c.VK_QUEUE_GRAPHICS_BIT;
             if (mask != 0) {
-                c.g_QueueFamily = i;
-                break :queue_family;
+                break :queue_family std.math.cast(u32, i) catch @panic("rippo");
             }
         }
 
         @panic("couldn't get queue family");
-    }
+    };
 
     // Create Logical Device (with 1 queue)
     {
