@@ -51,8 +51,6 @@ pub fn build(b: *std.build.Builder) void {
         "libs/imgui/imgui_draw.cpp",        "libs/imgui/imgui_widgets.cpp",
         "libs/imgui/imgui_tables.cpp",      "libs/imgui/imgui_demo.cpp",
         "libs/imgui/imgui_impl_render.cpp", "libs/imgui/imgui_impl_platform.cpp",
-
-        "src/imgui_impl.cpp",
     };
     const flags = .{
         "-fno-exceptions", "-fno-rtti",   "-Wno-return-type-c-linkage",

@@ -41,8 +41,6 @@ pub fn todoApp(is_open: *bool) !void {
     defer c.igEnd();
 
     if (!is_open.*) {
-        std.debug.print("closing from window\n", .{});
-
         for (items.items) |*item| {
             item.name.deinit();
         }

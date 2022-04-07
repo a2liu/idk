@@ -10,6 +10,4 @@ usingnamespace @cImport({
     @cDefine("NULL", "((void*) 0)");
     @cInclude("imgui_impl_render.h");
     @cInclude("imgui_impl_platform.h");
-
-    @cInclude("imgui_impl.h");
 });

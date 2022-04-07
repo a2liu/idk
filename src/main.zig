@@ -9,16 +9,33 @@ const app = @import("app.zig");
 
 // This file mostly contains plumbing to get this app to work.
 const app_name = "Dear ImGui GLFW+Vulkan example";
+const cstr_z = [*:0]const u8;
 const cstr = [*c]const u8;
 
 var g_Instance: c.VkInstance = null;
 var g_PhysicalDevice: c.VkPhysicalDevice = null;
 var g_Device: c.VkDevice = null;
-var g_QueueFamily: u32 = @bitCast(u32, -1);
+var g_QueueFamily: u32 = std.math.maxInt(u32);
 var g_Queue: c.VkQueue = null;
 var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
-var g_MainWindowData: c.ImGui_ImplVulkanH_Window = .{};
+var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
+    .Width = 0,
+    .Height = 0,
+    .Swapchain = null,
+    .Surface = null,
+    .SurfaceFormat = .{ .format = 0, .colorSpace = 0 },
+    .PresentMode = c.VK_PRESENT_MODE_MAX_ENUM_KHR,
+    .RenderPass = null,
+    .Pipeline = null,
+    .ClearEnable = true,
+    .ClearValue = undefined,
+    .FrameIndex = 0,
+    .ImageCount = 0,
+    .SemaphoreIndex = 0,
+    .Frames = null,
+    .FrameSemaphores = null,
+};
 
 fn checkVkResult(err: c.VkResult) callconv(.C) void {
     if (err == 0) return;
@@ -56,7 +73,7 @@ fn debug_report(
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
 // by the demo. Your real engine/app may not use them.
-fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
+fn setupVulkan(window: glfw.Window, width: c_int, height: c_int) !void {
     var _temp = alloc.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
@@ -64,11 +81,11 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     var err: c.VkResult = undefined;
 
     {
-        var count: u32 = 0;
-        const glfw_ext = c.glfwGetRequiredInstanceExtensions(&count);
+        const glfw_ext = try glfw.getRequiredInstanceExtensions();
+        const count = std.math.cast(u32, glfw_ext.len) catch @panic("oof");
 
-        const ext = try temp.alloc(cstr, count + 1);
-        std.mem.copy(cstr, ext, glfw_ext[0..count]);
+        const ext = try temp.alloc(cstr_z, count + 1);
+        std.mem.copy(cstr_z, ext, glfw_ext.ptr[0..glfw_ext.len]);
 
         ext[count] = "VK_EXT_debug_report";
 
@@ -84,12 +101,12 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             .pApplicationInfo = 0,
         };
 
-        err = c.vkCreateInstance(&create_info, null, &c.g_Instance);
+        err = c.vkCreateInstance(&create_info, null, &g_Instance);
         checkVkResult(err);
 
         const callback = cb: {
             const name = "vkCreateDebugReportCallbackEXT";
-            const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, name);
+            const raw_callback = c.vkGetInstanceProcAddr(g_Instance, name);
             if (@ptrCast(c.PFN_vkCreateDebugReportCallbackEXT, raw_callback)) |cb| {
                 break :cb cb;
             }
@@ -107,19 +124,19 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             .pUserData = null,
         };
 
-        err = callback(c.g_Instance, &debug_report_ci, null, &c.g_DebugReport);
+        err = callback(g_Instance, &debug_report_ci, null, &g_DebugReport);
         checkVkResult(err);
     }
 
     // Select GPU
-    c.g_PhysicalDevice = select_gpu: {
+    g_PhysicalDevice = select_gpu: {
         var count: u32 = 0;
-        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &count, null);
+        err = c.vkEnumeratePhysicalDevices(g_Instance, &count, null);
         checkVkResult(err);
         std.debug.assert(count > 0);
 
         const gpus = try temp.alloc(c.VkPhysicalDevice, count);
-        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &count, gpus.ptr);
+        err = c.vkEnumeratePhysicalDevices(g_Instance, &count, gpus.ptr);
         checkVkResult(err);
 
         // If a number >1 of GPUs got reported, find discrete GPU if present, or use
@@ -140,13 +157,13 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
     };
 
     // Select graphics queue family
-    c.g_QueueFamily = queue_family: {
+    g_QueueFamily = queue_family: {
         const getProperties = c.vkGetPhysicalDeviceQueueFamilyProperties;
 
         var count: u32 = 0;
-        getProperties(c.g_PhysicalDevice, &count, null);
+        getProperties(g_PhysicalDevice, &count, null);
         const queues = try temp.alloc(c.VkQueueFamilyProperties, count);
-        getProperties(c.g_PhysicalDevice, &count, queues.ptr);
+        getProperties(g_PhysicalDevice, &count, queues.ptr);
 
         for (queues) |queue, i| {
             const mask = queue.queueFlags & c.VK_QUEUE_GRAPHICS_BIT;
@@ -165,7 +182,7 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
         var queue_info = [_]c.VkDeviceQueueCreateInfo{
             .{
                 .sType = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-                .queueFamilyIndex = c.g_QueueFamily,
+                .queueFamilyIndex = g_QueueFamily,
                 .queueCount = 1,
                 .pQueuePriorities = &queue_priority,
                 .pNext = null,
@@ -186,10 +203,10 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             .pEnabledFeatures = null,
         };
 
-        err = c.vkCreateDevice(c.g_PhysicalDevice, &create_info, null, &c.g_Device);
+        err = c.vkCreateDevice(g_PhysicalDevice, &create_info, null, &g_Device);
         checkVkResult(err);
 
-        c.vkGetDeviceQueue(c.g_Device, c.g_QueueFamily, 0, &c.g_Queue);
+        c.vkGetDeviceQueue(g_Device, g_QueueFamily, 0, &g_Queue);
     }
 
     {
@@ -215,28 +232,23 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             .pPoolSizes = &pool_sizes,
             .pNext = null,
         };
-        err = c.vkCreateDescriptorPool(c.g_Device, &pool_info, null, &c.g_DescriptorPool);
+        err = c.vkCreateDescriptorPool(g_Device, &pool_info, null, &g_DescriptorPool);
         checkVkResult(err);
     }
 
-    const wd = &c.g_MainWindowData;
+    const wd = &g_MainWindowData;
 
     {
         // Create Window Surface
         var surface: c.VkSurfaceKHR = undefined;
-        err = c.glfwCreateWindowSurface(c.g_Instance, window, null, &surface);
+        err = try glfw.createWindowSurface(g_Instance, window, null, &surface);
         checkVkResult(err);
-
-        // Create Framebuffers
-        var w: c_int = undefined;
-        var h: c_int = undefined;
-        c.glfwGetFramebufferSize(window, &w, &h);
 
         wd.Surface = surface;
 
         // Check for WSI support
         var res: c.VkBool32 = undefined;
-        _ = c.vkGetPhysicalDeviceSurfaceSupportKHR(c.g_PhysicalDevice, c.g_QueueFamily, wd.Surface, &res);
+        _ = c.vkGetPhysicalDeviceSurfaceSupportKHR(g_PhysicalDevice, g_QueueFamily, wd.Surface, &res);
         if (res != c.VK_TRUE) {
             @panic("Error no WSI support on physical device 0\n");
         }
@@ -247,7 +259,7 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
         };
         const colorSpace = c.VK_COLORSPACE_SRGB_NONLINEAR_KHR;
         wd.SurfaceFormat = c.ImGui_ImplVulkanH_SelectSurfaceFormat(
-            c.g_PhysicalDevice,
+            g_PhysicalDevice,
             wd.Surface,
             &imageFormat,
             imageFormat.len,
@@ -258,23 +270,27 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
             c.VK_PRESENT_MODE_MAILBOX_KHR, c.VK_PRESENT_MODE_IMMEDIATE_KHR,
             c.VK_PRESENT_MODE_FIFO_KHR,
         };
-        wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(c.g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
+        wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
 
         // Create SwapChain, RenderPass, Framebuffer, etc.
-        c.ImGui_ImplVulkanH_CreateOrResizeWindow(c.g_Instance, c.g_PhysicalDevice, c.g_Device, wd, c.g_QueueFamily, null, width, height, 2);
+        c.ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, null, width, height, 2);
     }
 
     // Setup Platform/Renderer backends
     {
-        _ = c.ImGui_ImplGlfw_InitForVulkan(window, true);
+        // They're the same struct type, but defined in different includes of the
+        // same header
+        const handle = @ptrCast(*c.struct_GLFWwindow, window.handle);
+
+        _ = c.ImGui_ImplGlfw_InitForVulkan(handle, true);
         var init_info = c.ImGui_ImplVulkan_InitInfo{
-            .Instance = c.g_Instance,
-            .PhysicalDevice = c.g_PhysicalDevice,
-            .Device = c.g_Device,
-            .QueueFamily = c.g_QueueFamily,
-            .Queue = c.g_Queue,
+            .Instance = g_Instance,
+            .PhysicalDevice = g_PhysicalDevice,
+            .Device = g_Device,
+            .QueueFamily = g_QueueFamily,
+            .Queue = g_Queue,
             .PipelineCache = null,
-            .DescriptorPool = c.g_DescriptorPool,
+            .DescriptorPool = g_DescriptorPool,
             .Subpass = 0,
             .MinImageCount = 2,
             .ImageCount = wd.ImageCount,
@@ -315,7 +331,7 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
         const command_pool = frame.CommandPool;
         const command_buffer = frame.CommandBuffer;
 
-        err = c.vkResetCommandPool(c.g_Device, command_pool, 0);
+        err = c.vkResetCommandPool(g_Device, command_pool, 0);
         checkVkResult(err);
 
         const begin_info = c.VkCommandBufferBeginInfo{
@@ -342,10 +358,10 @@ fn setupVulkan(window: *c.GLFWwindow, width: c_int, height: c_int) !void {
         };
         err = c.vkEndCommandBuffer(command_buffer);
         checkVkResult(err);
-        err = c.vkQueueSubmit(c.g_Queue, 1, &end_info, null);
+        err = c.vkQueueSubmit(g_Queue, 1, &end_info, null);
         checkVkResult(err);
 
-        err = c.vkDeviceWaitIdle(c.g_Device);
+        err = c.vkDeviceWaitIdle(g_Device);
         checkVkResult(err);
         c.ImGui_ImplVulkan_DestroyFontUploadObjects();
     }
@@ -357,12 +373,10 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     const semaphores = wd.FrameSemaphores[wd.SemaphoreIndex];
     var image_acquired_semaphore = semaphores.ImageAcquiredSemaphore;
     var render_complete_semaphore = semaphores.RenderCompleteSemaphore;
-    _ = draw_data;
-    _ = render_complete_semaphore;
 
     const U64_MAX = std.math.maxInt(u64);
 
-    err = c.vkAcquireNextImageKHR(c.g_Device, wd.Swapchain, U64_MAX, image_acquired_semaphore, null, &wd.FrameIndex);
+    err = c.vkAcquireNextImageKHR(g_Device, wd.Swapchain, U64_MAX, image_acquired_semaphore, null, &wd.FrameIndex);
 
     if (err == c.VK_ERROR_OUT_OF_DATE_KHR or err == c.VK_SUBOPTIMAL_KHR) {
         return true;
@@ -374,15 +388,15 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
 
     {
         // wait indefinitely instead of periodically checking
-        err = c.vkWaitForFences(c.g_Device, 1, &fd.Fence, c.VK_TRUE, U64_MAX);
+        err = c.vkWaitForFences(g_Device, 1, &fd.Fence, c.VK_TRUE, U64_MAX);
         checkVkResult(err);
 
-        err = c.vkResetFences(c.g_Device, 1, &fd.Fence);
+        err = c.vkResetFences(g_Device, 1, &fd.Fence);
         checkVkResult(err);
     }
 
     {
-        err = c.vkResetCommandPool(c.g_Device, fd.CommandPool, 0);
+        err = c.vkResetCommandPool(g_Device, fd.CommandPool, 0);
         checkVkResult(err);
         var info = c.VkCommandBufferBeginInfo{
             .sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -438,7 +452,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
 
         err = c.vkEndCommandBuffer(fd.CommandBuffer);
         checkVkResult(err);
-        err = c.vkQueueSubmit(c.g_Queue, 1, &info, fd.Fence);
+        err = c.vkQueueSubmit(g_Queue, 1, &info, fd.Fence);
         checkVkResult(err);
     }
 
@@ -454,7 +468,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
             .pResults = null,
         };
 
-        err = c.vkQueuePresentKHR(c.g_Queue, &info);
+        err = c.vkQueuePresentKHR(g_Queue, &info);
         if (err == c.VK_ERROR_OUT_OF_DATE_KHR or err == c.VK_SUBOPTIMAL_KHR) {
             return true;
         }
@@ -469,19 +483,19 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
 }
 
 fn teardownVulkan() void {
-    const err = c.vkDeviceWaitIdle(c.g_Device);
+    const err = c.vkDeviceWaitIdle(g_Device);
     checkVkResult(err);
 
     c.ImGui_ImplVulkan_Shutdown();
     c.ImGui_ImplGlfw_Shutdown();
 
-    c.ImGui_ImplVulkanH_DestroyWindow(c.g_Instance, c.g_Device, &c.g_MainWindowData, null);
+    c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
 
-    c.vkDestroyDescriptorPool(c.g_Device, c.g_DescriptorPool, null);
+    c.vkDestroyDescriptorPool(g_Device, g_DescriptorPool, null);
 
     const callback = cb: {
         const name = "vkDestroyDebugReportCallbackEXT";
-        const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, name);
+        const raw_callback = c.vkGetInstanceProcAddr(g_Instance, name);
         if (@ptrCast(c.PFN_vkDestroyDebugReportCallbackEXT, raw_callback)) |cb| {
             break :cb cb;
         }
@@ -489,10 +503,10 @@ fn teardownVulkan() void {
         @panic("rip");
     };
 
-    callback(c.g_Instance, c.g_DebugReport, null);
+    callback(g_Instance, g_DebugReport, null);
 
-    c.vkDestroyDevice(c.g_Device, null);
-    c.vkDestroyInstance(c.g_Instance, null);
+    c.vkDestroyDevice(g_Device, null);
+    c.vkDestroyInstance(g_Instance, null);
 }
 
 pub fn main() !void {
@@ -510,10 +524,6 @@ pub fn main() !void {
     });
     defer window.destroy();
 
-    // They're the same struct type, but defined in different includes of the
-    // same header
-    const handle = @ptrCast(*c.struct_GLFWwindow, window.handle);
-
     // Setup Dear ImGui context, return value is the context that's created
     _ = c.igCreateContext(null);
     defer c.igDestroyContext(null);
@@ -524,7 +534,7 @@ pub fn main() !void {
         c.igStyleColorsDark(null); // Setup Dear ImGui style
     }
 
-    try setupVulkan(handle, i_width, i_height);
+    try setupVulkan(window, i_width, i_height);
     defer teardownVulkan();
 
     var rebuild_chain = false;
@@ -550,26 +560,27 @@ pub fn main() !void {
         alloc.clearFrameAllocator();
 
         if (rebuild_chain) {
-            var width: c_int = undefined;
-            var height: c_int = undefined;
+            // var width: c_int = undefined;
+            // var height: c_int = undefined;
 
-            c.glfwGetFramebufferSize(handle, &width, &height);
+            const size = try window.getFramebufferSize();
+            // c.glfwGetFramebufferSize(handle, &width, &height);
 
-            if (width > 0 and height > 0) {
+            if (size.width > 0 and size.height > 0) {
                 c.ImGui_ImplVulkan_SetMinImageCount(2);
                 c.ImGui_ImplVulkanH_CreateOrResizeWindow(
-                    c.g_Instance,
-                    c.g_PhysicalDevice,
-                    c.g_Device,
-                    &c.g_MainWindowData,
-                    c.g_QueueFamily,
+                    g_Instance,
+                    g_PhysicalDevice,
+                    g_Device,
+                    &g_MainWindowData,
+                    g_QueueFamily,
                     null,
-                    width,
-                    height,
+                    @bitCast(c_int, size.width),
+                    @bitCast(c_int, size.height),
                     2,
                 );
 
-                c.g_MainWindowData.FrameIndex = 0;
+                g_MainWindowData.FrameIndex = 0;
             }
 
             rebuild_chain = false;
@@ -589,7 +600,7 @@ pub fn main() !void {
 
         if (!is_minimized) {
             const clear_color = state.clear_color;
-            const wd = &c.g_MainWindowData;
+            const wd = &g_MainWindowData;
             wd.ClearValue.color.float32[0] = clear_color.x * clear_color.w;
             wd.ClearValue.color.float32[1] = clear_color.y * clear_color.w;
             wd.ClearValue.color.float32[2] = clear_color.z * clear_color.w;
