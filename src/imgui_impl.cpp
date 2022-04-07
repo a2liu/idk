@@ -17,8 +17,6 @@
 
 #include "imgui_impl.h"
 
-#include "imgui_impl_platform.h"
-#include "imgui_impl_render.h"
 #include <stdio.h>  // printf, fprintf
 #include <stdlib.h> // abort
 
@@ -35,17 +33,15 @@
 
 #define IMGUI_VULKAN_DEBUG_REPORT
 
-static VkAllocationCallbacks *g_Allocator = NULL;
 VkInstance g_Instance = VK_NULL_HANDLE;
 VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
 VkDevice g_Device = VK_NULL_HANDLE;
 uint32_t g_QueueFamily = (uint32_t)-1;
 VkQueue g_Queue = VK_NULL_HANDLE;
 VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
-static VkPipelineCache g_PipelineCache = VK_NULL_HANDLE;
 VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
 
-static ImGui_ImplVulkanH_Window g_MainWindowData;
+ImGui_ImplVulkanH_Window g_MainWindowData;
 static int g_MinImageCount = 2;
 
 static void check_vk_result(VkResult err) {
@@ -110,26 +106,8 @@ void SetupVulkanWindow(VkSurfaceKHR surface, int width, int height) {
   // Create SwapChain, RenderPass, Framebuffer, etc.
   IM_ASSERT(g_MinImageCount >= 2);
   ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device,
-                                         wd, g_QueueFamily, g_Allocator, width,
-                                         height, g_MinImageCount);
-}
-
-static void CleanupVulkan() {
-  vkDestroyDescriptorPool(g_Device, g_DescriptorPool, g_Allocator);
-
-  // Remove the debug report callback
-  auto vkDestroyDebugReportCallbackEXT =
-      (PFN_vkDestroyDebugReportCallbackEXT)vkGetInstanceProcAddr(
-          g_Instance, "vkDestroyDebugReportCallbackEXT");
-  vkDestroyDebugReportCallbackEXT(g_Instance, g_DebugReport, g_Allocator);
-
-  vkDestroyDevice(g_Device, g_Allocator);
-  vkDestroyInstance(g_Instance, g_Allocator);
-}
-
-static void CleanupVulkanWindow() {
-  ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData,
-                                  g_Allocator);
+                                         wd, g_QueueFamily, NULL, width, height,
+                                         g_MinImageCount);
 }
 
 static bool FrameRender(ImGui_ImplVulkanH_Window *wd, ImDrawData *draw_data) {
@@ -245,7 +223,7 @@ void cpp_resize_swapchain(GLFWwindow *window) {
     ImGui_ImplVulkan_SetMinImageCount(g_MinImageCount);
     ImGui_ImplVulkanH_CreateOrResizeWindow(
         g_Instance, g_PhysicalDevice, g_Device, &g_MainWindowData,
-        g_QueueFamily, g_Allocator, width, height, g_MinImageCount);
+        g_QueueFamily, NULL, width, height, g_MinImageCount);
     g_MainWindowData.FrameIndex = 0;
   }
 }
@@ -268,8 +246,6 @@ bool cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
 void cpp_init(GLFWwindow *window) {
   IMGUI_CHECKVERSION();
 
-  VkResult err;
-
   ImGui_ImplVulkanH_Window *wd = &g_MainWindowData;
 
   // Setup Platform/Renderer backends
@@ -280,13 +256,13 @@ void cpp_init(GLFWwindow *window) {
   init_info.Device = g_Device;
   init_info.QueueFamily = g_QueueFamily;
   init_info.Queue = g_Queue;
-  init_info.PipelineCache = g_PipelineCache;
+  init_info.PipelineCache = VK_NULL_HANDLE;
   init_info.DescriptorPool = g_DescriptorPool;
   init_info.Subpass = 0;
   init_info.MinImageCount = g_MinImageCount;
   init_info.ImageCount = wd->ImageCount;
   init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-  init_info.Allocator = g_Allocator;
+  init_info.Allocator = NULL;
   init_info.CheckVkResultFn = check_vk_result;
   ImGui_ImplVulkan_Init(&init_info, wd->RenderPass);
 
@@ -313,6 +289,8 @@ void cpp_init(GLFWwindow *window) {
   // ImFont* font =
   // io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
   // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
+
+  VkResult err;
 
   // Upload Fonts
   {
@@ -343,17 +321,4 @@ void cpp_init(GLFWwindow *window) {
     check_vk_result(err);
     ImGui_ImplVulkan_DestroyFontUploadObjects();
   }
-}
-
-void cpp_teardown(GLFWwindow *window) {
-  // Cleanup
-
-  VkResult err = vkDeviceWaitIdle(g_Device);
-  check_vk_result(err);
-
-  ImGui_ImplVulkan_Shutdown();
-  ImGui_ImplGlfw_Shutdown();
-
-  CleanupVulkanWindow();
-  CleanupVulkan();
 }

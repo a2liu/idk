@@ -197,6 +197,33 @@ fn setupVulkan(window: *c.GLFWwindow) !void {
     }
 }
 
+fn teardown() void {
+    const err = c.vkDeviceWaitIdle(c.g_Device);
+    checkVkResult(err);
+
+    c.ImGui_ImplVulkan_Shutdown();
+    c.ImGui_ImplGlfw_Shutdown();
+
+    c.ImGui_ImplVulkanH_DestroyWindow(c.g_Instance, c.g_Device, &c.g_MainWindowData, null);
+
+    c.vkDestroyDescriptorPool(c.g_Device, c.g_DescriptorPool, null);
+
+    const callback = cb: {
+        const name = "vkDestroyDebugReportCallbackEXT";
+        const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, name);
+        if (@ptrCast(c.PFN_vkDestroyDebugReportCallbackEXT, raw_callback)) |cb| {
+            break :cb cb;
+        }
+
+        @panic("rip");
+    };
+
+    callback(c.g_Instance, c.g_DebugReport, null);
+
+    c.vkDestroyDevice(c.g_Device, null);
+    c.vkDestroyInstance(c.g_Instance, null);
+}
+
 pub fn main() !void {
     try glfw.init(.{});
     defer glfw.terminate();
@@ -268,5 +295,5 @@ pub fn main() !void {
         std.time.sleep(14 * 1000 * 1000);
     }
 
-    c.cpp_teardown(handle);
+    teardown();
 }
