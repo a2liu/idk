@@ -9,7 +9,7 @@ const app = @import("app.zig");
 // This file mostly contains plumbing to get this app to work.
 const app_name = "Dear ImGui GLFW+Vulkan example";
 
-fn checkVkResult(err: c.VkResult) void {
+fn checkVkResult(err: c.VkResult) callconv(.C) void {
     if (err == 0) return;
 
     std.debug.print("[vulkan] Error: VkResult = {}\n", .{err});
@@ -195,6 +195,95 @@ fn setupVulkan(window: *c.GLFWwindow) !void {
 
         c.SetupVulkanWindow(surface, w, h);
     }
+
+    {
+        const wd = &c.g_MainWindowData;
+
+        // Setup Platform/Renderer backends
+        _ = c.ImGui_ImplGlfw_InitForVulkan(window, true);
+        var init_info = c.ImGui_ImplVulkan_InitInfo{
+            .Instance = c.g_Instance,
+            .PhysicalDevice = c.g_PhysicalDevice,
+            .Device = c.g_Device,
+            .QueueFamily = c.g_QueueFamily,
+            .Queue = c.g_Queue,
+            .PipelineCache = null,
+            .DescriptorPool = c.g_DescriptorPool,
+            .Subpass = 0,
+            .MinImageCount = 2,
+            .ImageCount = wd.*.ImageCount,
+            .MSAASamples = c.VK_SAMPLE_COUNT_1_BIT,
+            .Allocator = null,
+            .CheckVkResultFn = checkVkResult,
+        };
+        _ = c.ImGui_ImplVulkan_Init(&init_info, wd.*.RenderPass);
+    }
+
+    // Load Fonts
+    // - If no fonts are loaded, dear imgui will use the default font. You can
+    // also load multiple fonts and use ImGui::PushFont()/PopFont() to select
+    // them.
+    // - AddFontFromFileTTF() will return the ImFont* so you can store it if you
+    // need to select the font among multiple.
+    // - If the file cannot be loaded, the function will return NULL. Please
+    // handle those errors in your application (e.g. use an assertion, or display
+    // an error and quit).
+    // - The fonts will be rasterized at a given size (w/ oversampling) and stored
+    // into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which
+    // ImGui_ImplXXXX_NewFrame below will call.
+    // - Read 'docs/FONTS.md' for more instructions and details.
+    // - Remember that in C/C++ if you want to include a backslash \ in a string
+    // literal you need to write a double backslash \\ !
+    // io.Fonts->AddFontDefault();
+    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
+    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
+    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
+    // io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
+    // ImFont* font =
+    // io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
+    // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
+    {
+        const wd = &c.g_MainWindowData;
+
+        // Use any command queue
+        const frame = wd.*.Frames[wd.*.FrameIndex];
+        const command_pool = frame.CommandPool;
+        const command_buffer = frame.CommandBuffer;
+
+        err = c.vkResetCommandPool(c.g_Device, command_pool, 0);
+        checkVkResult(err);
+
+        const begin_info = c.VkCommandBufferBeginInfo{
+            .sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+            .flags = c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
+            .pNext = null,
+            .pInheritanceInfo = null,
+        };
+        err = c.vkBeginCommandBuffer(command_buffer, &begin_info);
+        checkVkResult(err);
+
+        _ = c.ImGui_ImplVulkan_CreateFontsTexture(command_buffer);
+
+        const end_info = c.VkSubmitInfo{
+            .sType = c.VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .commandBufferCount = 1,
+            .pCommandBuffers = &command_buffer,
+            .pNext = null,
+            .waitSemaphoreCount = 0,
+            .pWaitSemaphores = null,
+            .signalSemaphoreCount = 0,
+            .pSignalSemaphores = null,
+            .pWaitDstStageMask = null,
+        };
+        err = c.vkEndCommandBuffer(command_buffer);
+        checkVkResult(err);
+        err = c.vkQueueSubmit(c.g_Queue, 1, &end_info, null);
+        checkVkResult(err);
+
+        err = c.vkDeviceWaitIdle(c.g_Device);
+        checkVkResult(err);
+        c.ImGui_ImplVulkan_DestroyFontUploadObjects();
+    }
 }
 
 fn teardown() void {
@@ -243,8 +332,6 @@ pub fn main() !void {
     // same header
     const handle = @ptrCast(*c.struct_GLFWwindow, window.handle);
 
-    try setupVulkan(handle);
-
     // Setup Dear ImGui context, return value is the context that's created
     _ = c.igCreateContext(null);
     defer c.igDestroyContext(null);
@@ -255,7 +342,9 @@ pub fn main() !void {
         c.igStyleColorsDark(null); // Setup Dear ImGui style
     }
 
-    c.cpp_init(handle);
+    try setupVulkan(handle);
+
+    // c.cpp_init(handle);
 
     var rebuild_chain = false;
 

@@ -176,7 +176,6 @@ typedef struct ImGui_ImplVulkanH_FrameSemaphores {
   VkSemaphore RenderCompleteSemaphore;
 } ImGui_ImplVulkanH_FrameSemaphores;
 
-#ifdef __cplusplus
 // Helper structure to hold the data needed by one rendering context into one OS
 // window (Used by example's main.cpp. Used by multi-viewport features. Probably
 // NOT used by your own engine/app.)
@@ -202,10 +201,11 @@ struct ImGui_ImplVulkanH_Window {
   ImGui_ImplVulkanH_Frame *Frames;
   ImGui_ImplVulkanH_FrameSemaphores *FrameSemaphores;
 
+#ifdef __cplusplus
   ImGui_ImplVulkanH_Window() {
     memset((void *)this, 0, sizeof(*this));
     PresentMode = VK_PRESENT_MODE_MAX_ENUM_KHR;
     ClearEnable = true;
   }
-};
 #endif
+};

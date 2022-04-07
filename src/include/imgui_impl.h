@@ -34,5 +34,3 @@ EXTERN void SetupVulkanWindow(VkSurfaceKHR surface, int width, int height);
 EXTERN void cpp_resize_swapchain(GLFWwindow *window);
 EXTERN bool cpp_render(GLFWwindow *window, ImDrawData *draw_data,
                        ImVec4 clear_color);
-
-EXTERN void cpp_init(GLFWwindow *window);
