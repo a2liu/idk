@@ -41,10 +41,10 @@
 
 static VkAllocationCallbacks *g_Allocator = NULL;
 VkInstance g_Instance = VK_NULL_HANDLE;
-static VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
-static VkDevice g_Device = VK_NULL_HANDLE;
-static uint32_t g_QueueFamily = (uint32_t)-1;
-static VkQueue g_Queue = VK_NULL_HANDLE;
+VkPhysicalDevice g_PhysicalDevice = VK_NULL_HANDLE;
+VkDevice g_Device = VK_NULL_HANDLE;
+uint32_t g_QueueFamily = (uint32_t)-1;
+VkQueue g_Queue = VK_NULL_HANDLE;
 VkDebugReportCallbackEXT g_DebugReport = VK_NULL_HANDLE;
 static VkPipelineCache g_PipelineCache = VK_NULL_HANDLE;
 static VkDescriptorPool g_DescriptorPool = VK_NULL_HANDLE;
@@ -75,77 +75,8 @@ debug_report(VkDebugReportFlagsEXT flags, VkDebugReportObjectTypeEXT objectType,
   return VK_FALSE;
 }
 
-void cpp_SetupVulkan(const char **extensions, uint32_t extensions_count) {
+void cpp_SetupVulkan() {
   VkResult err;
-
-  // Select GPU
-  {
-    uint32_t gpu_count;
-    err = vkEnumeratePhysicalDevices(g_Instance, &gpu_count, NULL);
-    check_vk_result(err);
-    IM_ASSERT(gpu_count > 0);
-
-    VkPhysicalDevice *gpus =
-        (VkPhysicalDevice *)malloc(sizeof(VkPhysicalDevice) * gpu_count);
-    err = vkEnumeratePhysicalDevices(g_Instance, &gpu_count, gpus);
-    check_vk_result(err);
-
-    // If a number >1 of GPUs got reported, find discrete GPU if present, or use
-    // first one available. This covers most common cases
-    // (multi-gpu/integrated+dedicated graphics). Handling more complicated
-    // setups (multiple dedicated GPUs) is out of scope of this sample.
-    int use_gpu = 0;
-    for (int i = 0; i < (int)gpu_count; i++) {
-      VkPhysicalDeviceProperties properties;
-      vkGetPhysicalDeviceProperties(gpus[i], &properties);
-      if (properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
-        use_gpu = i;
-        break;
-      }
-    }
-
-    g_PhysicalDevice = gpus[use_gpu];
-    free(gpus);
-  }
-
-  // Select graphics queue family
-  {
-    uint32_t count;
-    vkGetPhysicalDeviceQueueFamilyProperties(g_PhysicalDevice, &count, NULL);
-    VkQueueFamilyProperties *queues = (VkQueueFamilyProperties *)malloc(
-        sizeof(VkQueueFamilyProperties) * count);
-    vkGetPhysicalDeviceQueueFamilyProperties(g_PhysicalDevice, &count, queues);
-    for (uint32_t i = 0; i < count; i++)
-      if (queues[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-        g_QueueFamily = i;
-        break;
-      }
-    free(queues);
-    IM_ASSERT(g_QueueFamily != (uint32_t)-1);
-  }
-
-  // Create Logical Device (with 1 queue)
-  {
-    int device_extension_count = 1;
-    const char *device_extensions[] = {"VK_KHR_swapchain"};
-    const float queue_priority[] = {1.0f};
-    VkDeviceQueueCreateInfo queue_info[1] = {};
-    queue_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_info[0].queueFamilyIndex = g_QueueFamily;
-    queue_info[0].queueCount = 1;
-    queue_info[0].pQueuePriorities = queue_priority;
-    VkDeviceCreateInfo create_info = {};
-    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.queueCreateInfoCount =
-        sizeof(queue_info) / sizeof(queue_info[0]);
-    create_info.pQueueCreateInfos = queue_info;
-    create_info.enabledExtensionCount = device_extension_count;
-    create_info.ppEnabledExtensionNames = device_extensions;
-    err =
-        vkCreateDevice(g_PhysicalDevice, &create_info, g_Allocator, &g_Device);
-    check_vk_result(err);
-    vkGetDeviceQueue(g_Device, g_QueueFamily, 0, &g_Queue);
-  }
 
   // Create Descriptor Pool
   {
@@ -371,12 +302,6 @@ bool cpp_render(GLFWwindow *window, ImDrawData *draw_data, ImVec4 clear_color) {
 void cpp_init(GLFWwindow *window) {
   IMGUI_CHECKVERSION();
 
-  // Setup Vulkan
-  // uint32_t extensions_count = 0;
-  // const char **extensions =
-  //     glfwGetRequiredInstanceExtensions(&extensions_count);
-  // cpp_SetupVulkan(extensions, extensions_count);
-
   // Create Window Surface
   VkSurfaceKHR surface;
   VkResult err =
@@ -462,7 +387,7 @@ void cpp_init(GLFWwindow *window) {
   }
 }
 
-int cpp_teardown(GLFWwindow *window) {
+void cpp_teardown(GLFWwindow *window) {
   // Cleanup
 
   VkResult err = vkDeviceWaitIdle(g_Device);
@@ -473,6 +398,4 @@ int cpp_teardown(GLFWwindow *window) {
 
   CleanupVulkanWindow();
   CleanupVulkan();
-
-  return 0;
 }

@@ -26,52 +26,139 @@ fn setupVulkan() !void {
 
     const cstr = [*c]const u8;
 
-    var count: u32 = 0;
-    const glfw_ext = c.glfwGetRequiredInstanceExtensions(&count);
+    {
+        var count: u32 = 0;
+        const glfw_ext = c.glfwGetRequiredInstanceExtensions(&count);
 
-    const ext = try temp.alloc(cstr, count + 1);
-    std.mem.copy(cstr, ext, glfw_ext[0..count]);
+        const ext = try temp.alloc(cstr, count + 1);
+        std.mem.copy(cstr, ext, glfw_ext[0..count]);
 
-    ext[count] = "VK_EXT_debug_report";
+        ext[count] = "VK_EXT_debug_report";
 
-    const layers: []const cstr = &[_]cstr{"VK_LAYER_KHRONOS_validation"};
-    const create_info = c.VkInstanceCreateInfo{
-        .sType = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
-        .enabledExtensionCount = count + 1,
-        .ppEnabledExtensionNames = ext.ptr,
-        .enabledLayerCount = 1,
-        .ppEnabledLayerNames = layers.ptr,
-        .pNext = null,
-        .flags = 0,
-        .pApplicationInfo = 0,
-    };
+        const layers: []const cstr = &[_]cstr{"VK_LAYER_KHRONOS_validation"};
+        const create_info = c.VkInstanceCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
+            .enabledExtensionCount = count + 1,
+            .ppEnabledExtensionNames = ext.ptr,
+            .enabledLayerCount = 1,
+            .ppEnabledLayerNames = layers.ptr,
+            .pNext = null,
+            .flags = 0,
+            .pApplicationInfo = 0,
+        };
 
-    err = c.vkCreateInstance(&create_info, null, &c.g_Instance);
-    checkVkResult(err);
+        err = c.vkCreateInstance(&create_info, null, &c.g_Instance);
+        checkVkResult(err);
 
-    const callback = cb: {
-        const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, "vkCreateDebugReportCallbackEXT");
-        if (@ptrCast(c.PFN_vkCreateDebugReportCallbackEXT, raw_callback)) |cb| {
-            break :cb cb;
+        const callback = cb: {
+            const raw_callback = c.vkGetInstanceProcAddr(c.g_Instance, "vkCreateDebugReportCallbackEXT");
+            if (@ptrCast(c.PFN_vkCreateDebugReportCallbackEXT, raw_callback)) |cb| {
+                break :cb cb;
+            }
+
+            @panic("rip");
+        };
+
+        var debug_report_ci = c.VkDebugReportCallbackCreateInfoEXT{
+            .sType = c.VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
+            .flags = c.VK_DEBUG_REPORT_ERROR_BIT_EXT |
+                c.VK_DEBUG_REPORT_WARNING_BIT_EXT |
+                c.VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
+            .pfnCallback = c.debug_report,
+            .pNext = null,
+            .pUserData = null,
+        };
+
+        err = callback(c.g_Instance, &debug_report_ci, null, &c.g_DebugReport);
+        checkVkResult(err);
+    }
+
+    // Select GPU
+    {
+        var gpu_count: u32 = 0;
+        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &gpu_count, null);
+        checkVkResult(err);
+        std.debug.assert(gpu_count > 0);
+
+        const gpus = try temp.alloc(c.VkPhysicalDevice, gpu_count);
+        err = c.vkEnumeratePhysicalDevices(c.g_Instance, &gpu_count, gpus.ptr);
+        checkVkResult(err);
+
+        // If a number >1 of GPUs got reported, find discrete GPU if present, or use
+        // first one available. This covers most common cases
+        // (multi-gpu/integrated+dedicated graphics). Handling more complicated
+        // setups (multiple dedicated GPUs) is out of scope of this sample.
+        var use_gpu: usize = 0;
+        var i: usize = 0;
+        while (i < gpu_count) : (i += 1) {
+            var properties: c.VkPhysicalDeviceProperties = undefined;
+            c.vkGetPhysicalDeviceProperties(gpus[i], &properties);
+            if (properties.deviceType == c.VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) {
+                use_gpu = i;
+                break;
+            }
         }
 
-        @panic("rip");
-    };
+        c.g_PhysicalDevice = gpus[use_gpu];
+    }
 
-    var debug_report_ci = c.VkDebugReportCallbackCreateInfoEXT{
-        .sType = c.VK_STRUCTURE_TYPE_DEBUG_REPORT_CALLBACK_CREATE_INFO_EXT,
-        .flags = c.VK_DEBUG_REPORT_ERROR_BIT_EXT |
-            c.VK_DEBUG_REPORT_WARNING_BIT_EXT |
-            c.VK_DEBUG_REPORT_PERFORMANCE_WARNING_BIT_EXT,
-        .pfnCallback = c.debug_report,
-        .pNext = null,
-        .pUserData = null,
-    };
+    // Select graphics queue family
+    queue_family: {
+        const getProperties = c.vkGetPhysicalDeviceQueueFamilyProperties;
 
-    err = callback(c.g_Instance, &debug_report_ci, null, &c.g_DebugReport);
-    checkVkResult(err);
+        var count: u32 = 0;
+        getProperties(c.g_PhysicalDevice, &count, null);
+        const queues = try temp.alloc(c.VkQueueFamilyProperties, count);
+        getProperties(c.g_PhysicalDevice, &count, queues.ptr);
 
-    c.cpp_SetupVulkan(ext.ptr, count + 1);
+        var i: u32 = 0;
+
+        while (i < count) : (i += 1) {
+            const mask = queues[i].queueFlags & c.VK_QUEUE_GRAPHICS_BIT;
+            if (mask != 0) {
+                c.g_QueueFamily = i;
+                break :queue_family;
+            }
+        }
+
+        @panic("couldn't get queue family");
+    }
+
+    // Create Logical Device (with 1 queue)
+    {
+        const device_extensions = [_]cstr{"VK_KHR_swapchain"};
+        const queue_priority = [_]f32{1.0};
+        var queue_info = [_]c.VkDeviceQueueCreateInfo{
+            .{
+                .sType = c.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+                .queueFamilyIndex = c.g_QueueFamily,
+                .queueCount = 1,
+                .pQueuePriorities = &queue_priority,
+                .pNext = null,
+                .flags = 0,
+            },
+        };
+
+        var create_info = c.VkDeviceCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+            .queueCreateInfoCount = queue_info.len,
+            .pQueueCreateInfos = &queue_info,
+            .enabledExtensionCount = device_extensions.len,
+            .ppEnabledExtensionNames = &device_extensions,
+            .pNext = null,
+            .flags = 0,
+            .enabledLayerCount = 0,
+            .ppEnabledLayerNames = null,
+            .pEnabledFeatures = null,
+        };
+
+        err = c.vkCreateDevice(c.g_PhysicalDevice, &create_info, null, &c.g_Device);
+        checkVkResult(err);
+
+        c.vkGetDeviceQueue(c.g_Device, c.g_QueueFamily, 0, &c.g_Queue);
+    }
+
+    c.cpp_SetupVulkan();
 }
 
 pub fn main() !void {
@@ -142,15 +229,8 @@ pub fn main() !void {
             rebuild_chain = c.cpp_render(handle, draw_data, app.clear_color);
         }
 
-        std.time.sleep(1000 * 1000);
+        std.time.sleep(14 * 1000 * 1000);
     }
 
-    const result = c.cpp_teardown(handle);
-
-    if (result != 0) {
-        const pressed = c.igSmallButton("Hello");
-        _ = pressed;
-
-        @panic("rippo bro");
-    }
+    c.cpp_teardown(handle);
 }
