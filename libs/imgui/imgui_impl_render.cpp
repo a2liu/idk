@@ -104,12 +104,6 @@
 //  buffer is active.
 
 #include "imgui_impl_render.h"
-#include <stdio.h>
-
-// Visual Studio warnings
-#ifdef _MSC_VER
-#pragma warning(disable : 4127) // condition expression is constant
-#endif
 
 // Reusable buffers used for rendering 1 current in-flight frame, for
 // ImGui_ImplVulkan_RenderDrawData() [Please zero-clear before use!]

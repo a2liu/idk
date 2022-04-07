@@ -1,9 +1,15 @@
-#version 450
+#version 450 core
 
-layout(location = 0) in vec3 v_color;
+layout(location = 0) out vec4 fColor;
 
-layout(location = 0) out vec4 f_color;
+layout(set=0, binding=0) uniform sampler2D sTexture;
 
-void main() {
-    f_color = vec4(v_color, 1.0);
+layout(location = 0) in struct {
+    vec4 Color;
+    vec2 UV;
+} In;
+
+void main()
+{
+    fColor = In.Color * texture(sTexture, In.UV.st);
 }
