@@ -138,6 +138,7 @@ fn resizeSwapchain(window: glfw.Window) !void {
 
 // TODO utility for creating vulkan swapchain, render pass, image views,
 // framebuffers, window command buffers
+//                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
 
 // This maybe *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C
 // macros. Unsure where they go here.
