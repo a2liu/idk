@@ -98,39 +98,7 @@ fn resizeSwapchain(window: glfw.Window) !void {
     if (size.width > 0 and size.height > 0) {
         c.ImGui_ImplVulkan_SetMinImageCount(2);
 
-        const wd = &g_MainWindowData;
-        const width = @bitCast(c_int, size.width);
-        const height = @bitCast(c_int, size.height);
-        const min_image_count = 2;
-
-        // c.ImGui_ImplVulkanH_CreateWindowSwapChain(
-        //     g_PhysicalDevice,
-        //     g_Device,
-        //     wd,
-        //     null,
-        //     width,
-        //     height,
-        //     min_image_count,
-        // );
-        // c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(
-        //     g_PhysicalDevice,
-        //     g_Device,
-        //     wd,
-        //     g_QueueFamily,
-        //     null,
-        // );
-
-        c.ImGui_ImplVulkanH_CreateOrResizeWindow(
-            g_Instance,
-            g_PhysicalDevice,
-            g_Device,
-            wd,
-            g_QueueFamily,
-            null,
-            width,
-            height,
-            min_image_count,
-        );
+        createOrResizeVulkanWindow(size);
 
         g_MainWindowData.FrameIndex = 0;
     }
@@ -139,6 +107,53 @@ fn resizeSwapchain(window: glfw.Window) !void {
 // TODO utility for creating vulkan swapchain, render pass, image views,
 // framebuffers, window command buffers
 //                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
+fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
+    const wd = &g_MainWindowData;
+    const width = @bitCast(c_int, size.width);
+    const height = @bitCast(c_int, size.height);
+    const min_image_count = 2;
+
+    // c.ImGui_ImplVulkanH_CreateWindowSwapChain(
+    //     g_PhysicalDevice,
+    //     g_Device,
+    //     wd,
+    //     null,
+    //     width,
+    //     height,
+    //     min_image_count,
+    // );
+    // c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(
+    //     g_PhysicalDevice,
+    //     g_Device,
+    //     wd,
+    //     g_QueueFamily,
+    //     null,
+    // );
+
+    // c.ImGui_ImplVulkanH_CreateOrResizeWindow(
+    //     g_Instance,
+    //     g_PhysicalDevice,
+    //     g_Device,
+    //     wd,
+    //     g_QueueFamily,
+    //     null,
+    //     width,
+    //     height,
+    //     min_image_count,
+    // );
+
+    c.ImGui_ImplVulkanH_CreateOrResizeWindow(
+        g_Instance,
+        g_PhysicalDevice,
+        g_Device,
+        wd,
+        g_QueueFamily,
+        null,
+        width,
+        height,
+        min_image_count,
+    );
+}
 
 // This maybe *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C
 // macros. Unsure where they go here.
@@ -193,7 +208,7 @@ var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
 // by the demo. Your real engine/app may not use them.
-fn setupVulkan(window: glfw.Window, width: c_int, height: c_int) !void {
+fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
     var _temp = alloc.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
@@ -420,7 +435,7 @@ fn setupVulkan(window: glfw.Window, width: c_int, height: c_int) !void {
         wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
 
         // Create SwapChain, RenderPass, Framebuffer, etc.
-        c.ImGui_ImplVulkanH_CreateOrResizeWindow(g_Instance, g_PhysicalDevice, g_Device, wd, g_QueueFamily, null, width, height, 2);
+        createOrResizeVulkanWindow(.{ .width = width, .height = height });
     }
 
     // Setup Platform/Renderer backends
