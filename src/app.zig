@@ -1,8 +1,7 @@
 const std = @import("std");
-const alloc = @import("./allocators.zig");
+const alloc = @import("allocators.zig");
 const glfw = @import("glfw");
 const gui = @import("gui.zig");
-const render = @import("render/mod.zig");
 const c = @import("c.zig");
 
 const todoApp = @import("todo.zig").todoApp;
