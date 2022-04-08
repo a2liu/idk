@@ -130,18 +130,6 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
     //     null,
     // );
 
-    // c.ImGui_ImplVulkanH_CreateOrResizeWindow(
-    //     g_Instance,
-    //     g_PhysicalDevice,
-    //     g_Device,
-    //     wd,
-    //     g_QueueFamily,
-    //     null,
-    //     width,
-    //     height,
-    //     min_image_count,
-    // );
-
     c.ImGui_ImplVulkanH_CreateOrResizeWindow(
         g_Instance,
         g_PhysicalDevice,
