@@ -92,32 +92,6 @@ pub fn main() !void {
     }
 }
 
-fn resizeSwapchain(window: glfw.Window) !void {
-    const size = try window.getFramebufferSize();
-
-    if (size.width > 0 and size.height > 0) {
-        c.ImGui_ImplVulkan_SetMinImageCount(2);
-
-        createOrResizeVulkanWindow(size);
-
-        g_MainWindowData.FrameIndex = 0;
-    }
-}
-
-// TODO utility for creating vulkan swapchain, render pass, image views,
-// framebuffers, window command buffers
-//                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
-fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
-    const wd = &g_MainWindowData;
-    const width = @bitCast(c_int, size.width);
-    const height = @bitCast(c_int, size.height);
-    const min_image_count = 2;
-
-    c.ImGui_ImplVulkanH_CreateWindowSwapChain(g_PhysicalDevice, g_Device, wd, null, width, height, min_image_count);
-
-    c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(g_PhysicalDevice, g_Device, wd, g_QueueFamily, null);
-}
-
 // This maybe *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C
 // macros. Unsure where they go here.
 //                              - Albert Liu, Apr 06, 2022 Wed 23:58 EDT
@@ -144,6 +118,11 @@ fn dbg(
     return c.VK_FALSE;
 }
 
+const Frame = struct {
+    frame: c.ImGui_ImplVulkanH_Frame,
+    semaphores: c.ImGui_ImplVulkanH_FrameSemaphores,
+};
+
 var g_Instance: c.VkInstance = null;
 var g_PhysicalDevice: c.VkPhysicalDevice = null;
 var g_Device: c.VkDevice = null;
@@ -151,6 +130,10 @@ var g_QueueFamily: u32 = std.math.maxInt(u32);
 var g_Queue: c.VkQueue = null;
 var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
+
+var frames: []Frame = [_]Frame{};
+var frame_index: usize = 0;
+
 var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
     .Width = 0,
     .Height = 0,
@@ -168,6 +151,32 @@ var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
     .Frames = null,
     .FrameSemaphores = null,
 };
+
+fn resizeSwapchain(window: glfw.Window) !void {
+    const size = try window.getFramebufferSize();
+
+    if (size.width > 0 and size.height > 0) {
+        c.ImGui_ImplVulkan_SetMinImageCount(2);
+
+        createOrResizeVulkanWindow(size);
+
+        g_MainWindowData.FrameIndex = 0;
+    }
+}
+
+// TODO utility for creating vulkan swapchain, render pass, image views,
+// framebuffers, window command buffers
+//                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
+fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
+    const wd = &g_MainWindowData;
+    const width = @bitCast(c_int, size.width);
+    const height = @bitCast(c_int, size.height);
+    const min_image_count = 2;
+
+    c.ImGui_ImplVulkanH_CreateWindowSwapChain(g_PhysicalDevice, g_Device, wd, null, width, height, min_image_count);
+
+    c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(g_PhysicalDevice, g_Device, wd, g_QueueFamily, null);
+}
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
 // by the demo. Your real engine/app may not use them.
@@ -524,6 +533,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     {
         err = c.vkResetCommandPool(g_Device, fd.CommandPool, 0);
         c.vkErr(err);
+
         var info = c.VkCommandBufferBeginInfo{
             .sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
             .flags = c.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT,
