@@ -159,6 +159,15 @@ IMGUI_IMPL_API VkPresentModeKHR ImGui_ImplVulkanH_SelectPresentMode(
 IMGUI_IMPL_API int ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(
     VkPresentModeKHR present_mode);
 
+IMGUI_IMPL_API void ImGui_ImplVulkanH_CreateWindowSwapChain(
+    VkPhysicalDevice physical_device, VkDevice device,
+    ImGui_ImplVulkanH_Window *wd, const VkAllocationCallbacks *allocator, int w,
+    int h, uint32_t min_image_count);
+IMGUI_IMPL_API void ImGui_ImplVulkanH_CreateWindowCommandBuffers(
+    VkPhysicalDevice physical_device, VkDevice device,
+    ImGui_ImplVulkanH_Window *wd, uint32_t queue_family,
+    const VkAllocationCallbacks *allocator);
+
 // Helper structure to hold the data needed by one rendering frame
 // (Used by example's main.cpp. Used by multi-viewport features. Probably NOT
 // used by your own engine/app.) [Please zero-clear before use!]

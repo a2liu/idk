@@ -113,34 +113,9 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
     const height = @bitCast(c_int, size.height);
     const min_image_count = 2;
 
-    // c.ImGui_ImplVulkanH_CreateWindowSwapChain(
-    //     g_PhysicalDevice,
-    //     g_Device,
-    //     wd,
-    //     null,
-    //     width,
-    //     height,
-    //     min_image_count,
-    // );
-    // c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(
-    //     g_PhysicalDevice,
-    //     g_Device,
-    //     wd,
-    //     g_QueueFamily,
-    //     null,
-    // );
+    c.ImGui_ImplVulkanH_CreateWindowSwapChain(g_PhysicalDevice, g_Device, wd, null, width, height, min_image_count);
 
-    c.ImGui_ImplVulkanH_CreateOrResizeWindow(
-        g_Instance,
-        g_PhysicalDevice,
-        g_Device,
-        wd,
-        g_QueueFamily,
-        null,
-        width,
-        height,
-        min_image_count,
-    );
+    c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(g_PhysicalDevice, g_Device, wd, g_QueueFamily, null);
 }
 
 // This maybe *should* have VKAPI_ATTR or VKAPI_CALL in there, but they're C

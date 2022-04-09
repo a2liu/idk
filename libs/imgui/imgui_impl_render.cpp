@@ -170,14 +170,6 @@ void ImGui_ImplVulkanH_DestroyFrameRenderBuffers(
 void ImGui_ImplVulkanH_DestroyWindowRenderBuffers(
     VkDevice device, ImGui_ImplVulkanH_WindowRenderBuffers *buffers,
     const VkAllocationCallbacks *allocator);
-void ImGui_ImplVulkanH_CreateWindowSwapChain(
-    VkPhysicalDevice physical_device, VkDevice device,
-    ImGui_ImplVulkanH_Window *wd, const VkAllocationCallbacks *allocator, int w,
-    int h, uint32_t min_image_count);
-void ImGui_ImplVulkanH_CreateWindowCommandBuffers(
-    VkPhysicalDevice physical_device, VkDevice device,
-    ImGui_ImplVulkanH_Window *wd, uint32_t queue_family,
-    const VkAllocationCallbacks *allocator);
 
 // Vulkan prototypes for use with custom loaders
 // (see description of IMGUI_IMPL_VULKAN_NO_PROTOTYPES in imgui_impl_vulkan.h
