@@ -1702,10 +1702,6 @@ void ImGui_ImplVulkanH_DestroyFrameSemaphores(
   fsd->ImageAcquiredSemaphore = fsd->RenderCompleteSemaphore = VK_NULL_HANDLE;
 }
 
-
-void ImGui_ImplVulkanH_DestroyFrameRenderBuffers(
-    VkDevice device, ImGui_ImplVulkanH_FrameRenderBuffers *buffers,
-    const VkAllocationCallbacks *allocator);
 void ImGui_ImplVulkanH_DestroyWindowRenderBuffers(
     VkDevice device, ImGui_ImplVulkanH_WindowRenderBuffers *buffers,
     const VkAllocationCallbacks *allocator) {
