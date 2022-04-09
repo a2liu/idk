@@ -119,8 +119,14 @@ fn dbg(
 }
 
 const Frame = struct {
-    frame: c.ImGui_ImplVulkanH_Frame,
-    semaphores: c.ImGui_ImplVulkanH_FrameSemaphores,
+    CommandPool: c.VkCommandPool,
+    CommandBuffer: c.VkCommandBuffer,
+    Fence: c.VkFence,
+    Backbuffer: c.VkImage,
+    BackbufferView: c.VkImageView,
+    Framebuffer: c.VkFramebuffer,
+    ImageAcquiredSemaphore: c.VkSemaphore,
+    RenderCompleteSemaphore: c.VkSemaphore,
 };
 
 var g_Instance: c.VkInstance = null;
