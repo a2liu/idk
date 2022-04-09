@@ -1706,7 +1706,7 @@ void ImGui_ImplVulkanH_DestroyWindowRenderBuffers(
     VkDevice device, ImGui_ImplVulkanH_WindowRenderBuffers *buffers,
     const VkAllocationCallbacks *allocator) {
   for (uint32_t n = 0; n < buffers->Count; n++) {
-    auto bufs = &buffers->FrameRenderBuffers[n]; 
+    auto bufs = &buffers->FrameRenderBuffers[n];
 
     if (bufs->VertexBuffer) {
       vkDestroyBuffer(device, bufs->VertexBuffer, allocator);
