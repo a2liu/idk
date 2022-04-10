@@ -137,7 +137,7 @@ var g_Queue: c.VkQueue = null;
 var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
 
-var frames: []Frame = [_]Frame{};
+var frames: []Frame = &.{};
 var frame_index: usize = 0;
 
 var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
@@ -157,18 +157,6 @@ var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
     .Frames = null,
     .FrameSemaphores = null,
 };
-
-fn destroyVulkanWindow() void {
-    c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
-
-    if (g_Instance != null) {
-        return;
-    }
-
-    std.debug.print("rippo\n", .{});
-
-    _ = c.vkDeviceWaitIdle(g_Device);
-}
 
 fn resizeSwapchain(window: glfw.Window) !void {
     const size = try window.getFramebufferSize();
@@ -643,7 +631,48 @@ pub fn teardownVulkan() void {
     c.ImGui_ImplVulkan_Shutdown();
     c.ImGui_ImplGlfw_Shutdown();
 
-    destroyVulkanWindow();
+    c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
+
+    zig_init: {
+        if (g_Instance != null) {
+            break :zig_init;
+        }
+
+        std.debug.print("rippo\n", .{});
+
+        _ = c.vkDeviceWaitIdle(g_Device);
+
+        for (frames) |*frame| {
+            c.vkDestroyFence(g_Device, frame.Fence, null);
+            c.vkFreeCommandBuffers(g_Device, frame.CommandPool, 1, &frame.CommandBuffer);
+            c.vkDestroyCommandPool(g_Device, frame.CommandPool, null);
+            frame.Fence = null;
+            frame.CommandBuffer = null;
+            frame.CommandPool = null;
+
+            c.vkDestroyImageView(g_Device, frame.BackbufferView, null);
+            c.vkDestroyFramebuffer(g_Device, frame.Framebuffer, null);
+
+            c.vkDestroySemaphore(g_Device, frame.ImageAcquiredSemaphore, null);
+            c.vkDestroySemaphore(g_Device, frame.RenderCompleteSemaphore, null);
+            frame.ImageAcquiredSemaphore = null;
+            frame.RenderCompleteSemaphore = null;
+        }
+
+        alloc.Global.free(frames);
+        frames = &.{};
+
+        const wd = &g_MainWindowData;
+        c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
+        c.vkDestroyRenderPass(g_Device, wd.RenderPass, null);
+        c.vkDestroySwapchainKHR(g_Device, wd.Swapchain, null);
+        c.vkDestroySurfaceKHR(g_Instance, wd.Surface, null);
+
+        wd.Pipeline = null;
+        wd.RenderPass = null;
+        wd.Swapchain = null;
+        wd.Surface = null;
+    }
 
     c.vkDestroyDescriptorPool(g_Device, g_DescriptorPool, null);
 
