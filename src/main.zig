@@ -6,8 +6,11 @@ const gui = @import("gui.zig");
 const c = @import("c.zig");
 const app = @import("app.zig");
 
+const assert = std.debug.assert;
+
 // This file mostly contains plumbing to get this app to work.
 const app_name = "Dear ImGui GLFW+Vulkan example";
+const min_image_count = 3;
 
 pub fn main() !void {
     try glfw.init(.{});
@@ -137,8 +140,8 @@ var g_Queue: c.VkQueue = null;
 var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
 
-var frames: []Frame = &.{};
-var frame_index: usize = 0;
+var g_Frames: []Frame = &.{};
+var g_Frame_index: usize = 0;
 
 var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
     .Width = 0,
@@ -162,9 +165,9 @@ fn resizeSwapchain(window: glfw.Window) !void {
     const size = try window.getFramebufferSize();
 
     if (size.width > 0 and size.height > 0) {
-        c.ImGui_ImplVulkan_SetMinImageCount(2);
+        c.ImGui_ImplVulkan_SetMinImageCount(min_image_count);
 
-        createOrResizeVulkanWindow(size);
+        try createOrResizeVulkanWindow(size);
 
         g_MainWindowData.FrameIndex = 0;
     }
@@ -173,11 +176,12 @@ fn resizeSwapchain(window: glfw.Window) !void {
 // TODO utility for creating vulkan swapchain, render pass, image views,
 // framebuffers, window command buffers
 //                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
-fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
+fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
     const wd = &g_MainWindowData;
     const width = @bitCast(c_int, size.width);
     const height = @bitCast(c_int, size.height);
-    const min_image_count = 2;
+
+    var err: c.VkResult = undefined;
 
     c.ImGui_ImplVulkanH_CreateOrResizeWindow(
         g_Instance,
@@ -191,11 +195,110 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
         min_image_count,
     );
 
-    zig_code: {
-        if (g_Instance != null) {
-            break :zig_code;
+    if (util.runtime_true()) {
+        return;
+    }
+
+    std.debug.print("rippo window\n", .{});
+
+    var old_swapchain = wd.Swapchain;
+    wd.Swapchain = null;
+
+    err = c.vkDeviceWaitIdle(g_Device);
+    c.vkErr(err);
+
+    destroyFrames(g_Frames);
+    g_Frames = &.{};
+
+    if (wd.RenderPass != null)
+        c.vkDestroyRenderPass(g_Device, wd.RenderPass, null);
+    if (wd.Pipeline != null)
+        c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
+
+    // if (min_image_count == 0)
+    //   min_image_count =
+    //       ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(wd.PresentMode);
+
+    // Create Swapchain
+    {
+        var info = c.VkSwapchainCreateInfoKHR{
+            .sType = c.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+            .surface = wd.Surface,
+            .minImageCount = min_image_count,
+            .imageFormat = wd.SurfaceFormat.format,
+            .imageColorSpace = wd.SurfaceFormat.colorSpace,
+            .imageArrayLayers = 1,
+            .imageUsage = c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+
+            // Assume that graphics family == present family
+            .imageSharingMode = c.VK_SHARING_MODE_EXCLUSIVE,
+
+            .preTransform = c.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
+            .compositeAlpha = c.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+            .presentMode = wd.PresentMode,
+            .clipped = c.VK_TRUE,
+            .oldSwapchain = old_swapchain,
+
+            .imageExtent = .{ .width = 0, .height = 0 },
+            .queueFamilyIndexCount = 0,
+            .pQueueFamilyIndices = null,
+            .flags = 0,
+            .pNext = null,
+        };
+
+        var cap: c.VkSurfaceCapabilitiesKHR = undefined;
+        err = c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_PhysicalDevice, wd.Surface, &cap);
+        c.vkErr(err);
+
+        if (info.minImageCount < cap.minImageCount) {
+            info.minImageCount = cap.minImageCount;
+        } else if (cap.maxImageCount != 0 and info.minImageCount > cap.maxImageCount) {
+            info.minImageCount = cap.maxImageCount;
+        }
+
+        if (cap.currentExtent.width == 0xffffffff) {
+            info.imageExtent.width = size.width;
+            wd.Width = width;
+            info.imageExtent.height = size.height;
+            wd.Height = height;
+        } else {
+            info.imageExtent.width = cap.currentExtent.width;
+            wd.Width = @bitCast(c_int, cap.currentExtent.width);
+            info.imageExtent.height = cap.currentExtent.height;
+            wd.Height = @bitCast(c_int, cap.currentExtent.height);
+        }
+
+        err = c.vkCreateSwapchainKHR(g_Device, &info, null, &wd.Swapchain);
+        c.vkErr(err);
+
+        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &wd.ImageCount, null);
+        c.vkErr(err);
+
+        var backbuffers: [16]c.VkImage = undefined;
+        assert(wd.ImageCount >= min_image_count);
+        assert(wd.ImageCount < backbuffers.len);
+        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &wd.ImageCount, &backbuffers);
+        c.vkErr(err);
+
+        assert(wd.Frames == null);
+        g_Frames = try alloc.Global.alloc(Frame, wd.ImageCount);
+        for (g_Frames) |*frame, index| {
+            frame.CommandPool = null;
+            frame.CommandBuffer = null;
+            frame.Fence = null;
+            frame.Backbuffer = backbuffers[index];
+            frame.BackbufferView = null;
+            frame.Framebuffer = null;
+            frame.ImageAcquiredSemaphore = null;
+            frame.RenderCompleteSemaphore = null;
         }
     }
+
+    if (old_swapchain != null) {
+        c.vkDestroySwapchainKHR(g_Device, old_swapchain, null);
+    }
+
+    _ = old_swapchain;
 }
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
@@ -427,7 +530,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
         wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
 
         // Create SwapChain, RenderPass, Framebuffer, etc.
-        createOrResizeVulkanWindow(.{ .width = width, .height = height });
+        try createOrResizeVulkanWindow(.{ .width = width, .height = height });
     }
 
     // Setup Platform/Renderer backends
@@ -446,7 +549,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
             .PipelineCache = null,
             .DescriptorPool = g_DescriptorPool,
             .Subpass = 0,
-            .MinImageCount = 2,
+            .MinImageCount = min_image_count,
             .ImageCount = wd.ImageCount,
             .MSAASamples = c.VK_SAMPLE_COUNT_1_BIT,
             .Allocator = null,
@@ -639,6 +742,27 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     return false;
 }
 
+fn destroyFrames(frames: []Frame) void {
+    for (frames) |*frame| {
+        c.vkDestroyFence(g_Device, frame.Fence, null);
+        c.vkFreeCommandBuffers(g_Device, frame.CommandPool, 1, &frame.CommandBuffer);
+        c.vkDestroyCommandPool(g_Device, frame.CommandPool, null);
+        frame.Fence = null;
+        frame.CommandBuffer = null;
+        frame.CommandPool = null;
+
+        c.vkDestroyImageView(g_Device, frame.BackbufferView, null);
+        c.vkDestroyFramebuffer(g_Device, frame.Framebuffer, null);
+
+        c.vkDestroySemaphore(g_Device, frame.ImageAcquiredSemaphore, null);
+        c.vkDestroySemaphore(g_Device, frame.RenderCompleteSemaphore, null);
+        frame.ImageAcquiredSemaphore = null;
+        frame.RenderCompleteSemaphore = null;
+    }
+
+    alloc.Global.free(frames);
+}
+
 pub fn teardownVulkan() void {
     const err = c.vkDeviceWaitIdle(g_Device);
     c.vkErr(err);
@@ -649,7 +773,7 @@ pub fn teardownVulkan() void {
     c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
 
     zig_code: {
-        if (g_Instance != null) {
+        if (util.runtime_true()) {
             break :zig_code;
         }
 
@@ -657,25 +781,8 @@ pub fn teardownVulkan() void {
 
         _ = c.vkDeviceWaitIdle(g_Device);
 
-        for (frames) |*frame| {
-            c.vkDestroyFence(g_Device, frame.Fence, null);
-            c.vkFreeCommandBuffers(g_Device, frame.CommandPool, 1, &frame.CommandBuffer);
-            c.vkDestroyCommandPool(g_Device, frame.CommandPool, null);
-            frame.Fence = null;
-            frame.CommandBuffer = null;
-            frame.CommandPool = null;
-
-            c.vkDestroyImageView(g_Device, frame.BackbufferView, null);
-            c.vkDestroyFramebuffer(g_Device, frame.Framebuffer, null);
-
-            c.vkDestroySemaphore(g_Device, frame.ImageAcquiredSemaphore, null);
-            c.vkDestroySemaphore(g_Device, frame.RenderCompleteSemaphore, null);
-            frame.ImageAcquiredSemaphore = null;
-            frame.RenderCompleteSemaphore = null;
-        }
-
-        alloc.Global.free(frames);
-        frames = &.{};
+        destroyFrames(g_Frames);
+        g_Frames = &.{};
 
         const wd = &g_MainWindowData;
         c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
