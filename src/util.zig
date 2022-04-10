@@ -59,10 +59,3 @@ pub const SimTimer = struct {
         return self.trials[index];
     }
 };
-
-// Zig does quite a bit of typechecking-level laziness, and sometimes we want to
-// force it to compile all branches, even if one of them statically will never
-// run.
-pub fn runtime_true() bool {
-    return true;
-}

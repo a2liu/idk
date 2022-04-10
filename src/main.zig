@@ -141,7 +141,6 @@ var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
 
 var g_Frames: []Frame = &.{};
-var g_Frame_index: usize = 0;
 
 var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
     .Width = 0,
@@ -183,19 +182,19 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
 
     var err: c.VkResult = undefined;
 
-    c.ImGui_ImplVulkanH_CreateOrResizeWindow(
-        g_Instance,
-        g_PhysicalDevice,
-        g_Device,
-        wd,
-        g_QueueFamily,
-        null,
-        width,
-        height,
-        min_image_count,
-    );
+    if (refactor_flag()) {
+        c.ImGui_ImplVulkanH_CreateOrResizeWindow(
+            g_Instance,
+            g_PhysicalDevice,
+            g_Device,
+            wd,
+            g_QueueFamily,
+            null,
+            width,
+            height,
+            min_image_count,
+        );
 
-    if (util.runtime_true()) {
         return;
     }
 
@@ -280,7 +279,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &wd.ImageCount, &backbuffers);
         c.vkErr(err);
 
-        assert(wd.Frames == null);
+        assert(g_Frames.len == 0);
         g_Frames = try alloc.Global.alloc(Frame, wd.ImageCount);
         for (g_Frames) |*frame, index| {
             frame.CommandPool = null;
@@ -298,7 +297,125 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         c.vkDestroySwapchainKHR(g_Device, old_swapchain, null);
     }
 
-    _ = old_swapchain;
+    // Create the Render Pass
+    {
+        var attachment = c.VkAttachmentDescription{
+            .format = wd.SurfaceFormat.format,
+            .samples = c.VK_SAMPLE_COUNT_1_BIT,
+            .loadOp = if (wd.ClearEnable) c.VK_ATTACHMENT_LOAD_OP_CLEAR else c.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .storeOp = c.VK_ATTACHMENT_STORE_OP_STORE,
+            .stencilLoadOp = c.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .stencilStoreOp = c.VK_ATTACHMENT_STORE_OP_DONT_CARE,
+            .initialLayout = c.VK_IMAGE_LAYOUT_UNDEFINED,
+            .finalLayout = c.VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            .flags = 0,
+        };
+        var color_attachment = c.VkAttachmentReference{
+            .attachment = 0,
+            .layout = c.VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        };
+        var subpass = c.VkSubpassDescription{
+            .pipelineBindPoint = c.VK_PIPELINE_BIND_POINT_GRAPHICS,
+            .colorAttachmentCount = 1,
+            .pColorAttachments = &color_attachment,
+            .flags = 0,
+            .inputAttachmentCount = 0,
+            .pInputAttachments = null,
+            .pResolveAttachments = null,
+            .pDepthStencilAttachment = null,
+            .preserveAttachmentCount = 0,
+            .pPreserveAttachments = null,
+        };
+
+        var dependency = c.VkSubpassDependency{
+            .srcSubpass = c.VK_SUBPASS_EXTERNAL,
+            .dstSubpass = 0,
+            .srcStageMask = c.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .dstStageMask = c.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            .srcAccessMask = 0,
+            .dstAccessMask = c.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            .dependencyFlags = 0,
+        };
+
+        var info = c.VkRenderPassCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO,
+            .attachmentCount = 1,
+            .pAttachments = &attachment,
+            .subpassCount = 1,
+            .pSubpasses = &subpass,
+            .dependencyCount = 1,
+            .pDependencies = &dependency,
+            .pNext = null,
+            .flags = 0,
+        };
+
+        err = c.vkCreateRenderPass(g_Device, &info, null, &wd.RenderPass);
+        c.vkErr(err);
+
+        // We do not create a pipeline by default as this is also used by examples'
+        // main.cpp, but secondary viewport in multi-viewport mode may want to
+        // create one with:
+        // ImGui_ImplVulkan_CreatePipeline(device, allocator, VK_NULL_HANDLE,
+        // wd->RenderPass, VK_SAMPLE_COUNT_1_BIT, &wd->Pipeline, bd->Subpass);
+    }
+
+    // Create The Image Views
+    {
+        const image_range = c.VkImageSubresourceRange{
+            .aspectMask = c.VK_IMAGE_ASPECT_COLOR_BIT,
+            .baseMipLevel = 0,
+            .levelCount = 1,
+            .baseArrayLayer = 0,
+            .layerCount = 1,
+        };
+
+        var info = c.VkImageViewCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+            .viewType = c.VK_IMAGE_VIEW_TYPE_2D,
+            .format = wd.SurfaceFormat.format,
+            .components = .{
+                .r = c.VK_COMPONENT_SWIZZLE_R,
+                .g = c.VK_COMPONENT_SWIZZLE_G,
+                .b = c.VK_COMPONENT_SWIZZLE_B,
+                .a = c.VK_COMPONENT_SWIZZLE_A,
+            },
+
+            .flags = 0,
+            .image = undefined,
+            .subresourceRange = image_range,
+            .pNext = null,
+        };
+
+        for (g_Frames) |*frame| {
+            info.image = frame.Backbuffer;
+
+            err = c.vkCreateImageView(g_Device, &info, null, &frame.BackbufferView);
+            c.vkErr(err);
+        }
+    }
+
+    // Create Framebuffer
+    {
+        var attachment: [1]c.VkImageView = undefined;
+        var info = c.VkFramebufferCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+            .renderPass = wd.RenderPass,
+            .attachmentCount = 1,
+            .pAttachments = &attachment,
+            .width = @bitCast(u32, wd.Width),
+            .height = @bitCast(u32, wd.Height),
+            .layers = 1,
+            .flags = 0,
+            .pNext = null,
+        };
+
+        for (g_Frames) |*frame| {
+            attachment[0] = frame.BackbufferView;
+
+            err = c.vkCreateFramebuffer(g_Device, &info, null, &frame.Framebuffer);
+            c.vkErr(err);
+        }
+    }
 }
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
@@ -583,6 +700,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
     // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
     {
         const frame = wd.Frames[wd.FrameIndex];
+        // const frame = g_Frames[wd.FrameIndex];
 
         // Use any command queue
         const command_pool = frame.CommandPool;
@@ -629,6 +747,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     var err: c.VkResult = undefined;
 
     const semaphores = wd.FrameSemaphores[wd.SemaphoreIndex];
+    // const semaphores = g_Frames[wd.SemaphoreIndex];
     var image_acquired_semaphore = semaphores.ImageAcquiredSemaphore;
     var render_complete_semaphore = semaphores.RenderCompleteSemaphore;
 
@@ -643,6 +762,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     c.vkErr(err);
 
     const fd = &wd.Frames[wd.FrameIndex];
+    // const fd = &g_Frames[wd.FrameIndex];
 
     {
         // wait indefinitely instead of periodically checking
@@ -770,10 +890,9 @@ pub fn teardownVulkan() void {
     c.ImGui_ImplVulkan_Shutdown();
     c.ImGui_ImplGlfw_Shutdown();
 
-    c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
-
     zig_code: {
-        if (util.runtime_true()) {
+        if (refactor_flag()) {
+            c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
             break :zig_code;
         }
 
@@ -812,4 +931,11 @@ pub fn teardownVulkan() void {
 
     c.vkDestroyDevice(g_Device, null);
     c.vkDestroyInstance(g_Instance, null);
+}
+
+// Zig does quite a bit of typechecking-level laziness, and sometimes we want to
+// force it to compile all branches, even if one of them statically will never
+// run.
+pub fn refactor_flag() bool {
+    return true;
 }
