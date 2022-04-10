@@ -901,6 +901,9 @@ pub fn teardownVulkan() void {
 
         std.debug.print("rippo\n", .{});
 
+        // FIXME: We could wait on the Queue if we had the queue in wd->
+        // (otherwise VulkanH functions can't use globals)
+        // vkQueueWaitIdle(bd->Queue);
         _ = c.vkDeviceWaitIdle(g_Device);
 
         destroyFrames(g_Frames);
