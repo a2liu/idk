@@ -417,8 +417,50 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         }
     }
 
-    // ImGui_ImplVulkanH_CreateWindowCommandBuffers(physical_device, device, wd,
-    //                                              queue_family, allocator);
+    // Create Command Buffers
+    for (g_Frames) |*frame| {
+        var create_pool = c.VkCommandPoolCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+            .flags = c.VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT,
+            .queueFamilyIndex = g_QueueFamily,
+            .pNext = null,
+        };
+
+        err = c.vkCreateCommandPool(g_Device, &create_pool, null, &frame.CommandPool);
+        c.vkErr(err);
+
+        var alloc_cmd = c.VkCommandBufferAllocateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+            .commandPool = frame.CommandPool,
+            .level = c.VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+            .commandBufferCount = 1,
+            .pNext = null,
+        };
+
+        err = c.vkAllocateCommandBuffers(g_Device, &alloc_cmd, &frame.CommandBuffer);
+        c.vkErr(err);
+
+        var create_fence = c.VkFenceCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+            .flags = c.VK_FENCE_CREATE_SIGNALED_BIT,
+            .pNext = null,
+        };
+
+        err = c.vkCreateFence(g_Device, &create_fence, null, &frame.Fence);
+        c.vkErr(err);
+
+        var create_sem = c.VkSemaphoreCreateInfo{
+            .sType = c.VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+            .flags = 0,
+            .pNext = null,
+        };
+
+        err = c.vkCreateSemaphore(g_Device, &create_sem, null, &frame.ImageAcquiredSemaphore);
+        c.vkErr(err);
+
+        err = c.vkCreateSemaphore(g_Device, &create_sem, null, &frame.RenderCompleteSemaphore);
+        c.vkErr(err);
+    }
 }
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
