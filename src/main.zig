@@ -179,9 +179,23 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) void {
     const height = @bitCast(c_int, size.height);
     const min_image_count = 2;
 
-    c.ImGui_ImplVulkanH_CreateWindowSwapChain(g_PhysicalDevice, g_Device, wd, null, width, height, min_image_count);
+    c.ImGui_ImplVulkanH_CreateOrResizeWindow(
+        g_Instance,
+        g_PhysicalDevice,
+        g_Device,
+        wd,
+        g_QueueFamily,
+        null,
+        width,
+        height,
+        min_image_count,
+    );
 
-    c.ImGui_ImplVulkanH_CreateWindowCommandBuffers(g_PhysicalDevice, g_Device, wd, g_QueueFamily, null);
+    zig_code: {
+        if (g_Instance != null) {
+            break :zig_code;
+        }
+    }
 }
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
@@ -633,9 +647,9 @@ pub fn teardownVulkan() void {
 
     c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
 
-    zig_init: {
+    zig_code: {
         if (g_Instance != null) {
-            break :zig_init;
+            break :zig_code;
         }
 
         std.debug.print("rippo\n", .{});

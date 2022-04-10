@@ -54,7 +54,7 @@ fn navigator(state: *AppState) void {
         const fps = io.*.Framerate;
         const frame_time = 1000.0 / fps;
         gui.Text(
-            "ImGui average {d:.3} ms/frame ({d:.1} FPS)",
+            "ImGui frame average {d:.3} ms/frame ({d:.1} FPS)",
             .{ frame_time, fps },
         );
     }
@@ -64,7 +64,7 @@ fn navigator(state: *AppState) void {
         const fps = 1000.0 / frame_time;
 
         gui.Text(
-            "Frame average {d:.3} ms/frame ({d:.1} FPS)",
+            "Recent frame time {d:.3} ms/frame ({d:.1} FPS)",
             .{ frame_time, fps },
         );
     }
@@ -74,7 +74,7 @@ fn navigator(state: *AppState) void {
         const fps = 1000.0 / frame_time;
 
         gui.Text(
-            "Compute average {d:.3} ms/frame ({d:.1} FPS)",
+            "Recent compute time {d:.3} ms/frame ({d:.1} FPS)",
             .{ frame_time, fps },
         );
     }
