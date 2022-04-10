@@ -416,6 +416,9 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
             c.vkErr(err);
         }
     }
+
+    // ImGui_ImplVulkanH_CreateWindowCommandBuffers(physical_device, device, wd,
+    //                                              queue_family, allocator);
 }
 
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
