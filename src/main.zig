@@ -158,6 +158,18 @@ var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
     .FrameSemaphores = null,
 };
 
+fn destroyVulkanWindow() void {
+    c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
+
+    if (g_Instance != null) {
+        return;
+    }
+
+    std.debug.print("rippo\n", .{});
+
+    _ = c.vkDeviceWaitIdle(g_Device);
+}
+
 fn resizeSwapchain(window: glfw.Window) !void {
     const size = try window.getFramebufferSize();
 
@@ -631,7 +643,7 @@ pub fn teardownVulkan() void {
     c.ImGui_ImplVulkan_Shutdown();
     c.ImGui_ImplGlfw_Shutdown();
 
-    c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
+    destroyVulkanWindow();
 
     c.vkDestroyDescriptorPool(g_Device, g_DescriptorPool, null);
 
