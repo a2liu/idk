@@ -216,7 +216,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
 
         ext[count] = "VK_EXT_debug_report";
 
-        const layers: []const c.str = &[_]c.str{"VK_LAYER_KHRONOS_validation"};
+        const layers: []const c.str = &.{"VK_LAYER_KHRONOS_validation"};
         const create_info = c.VkInstanceCreateInfo{
             .sType = c.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO,
             .enabledExtensionCount = count + 1,
@@ -625,6 +625,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
         };
 
         err = c.vkQueuePresentKHR(g_Queue, &info);
+
         if (err == c.VK_ERROR_OUT_OF_DATE_KHR or err == c.VK_SUBOPTIMAL_KHR) {
             return true;
         }
