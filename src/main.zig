@@ -85,13 +85,12 @@ pub fn main() !void {
 
         if (!is_minimized) {
             const clear_color = state.clear_color;
-            const wd = &g_MainWindowData;
-            wd.ClearValue.color.float32[0] = clear_color.x * clear_color.w;
-            wd.ClearValue.color.float32[1] = clear_color.y * clear_color.w;
-            wd.ClearValue.color.float32[2] = clear_color.z * clear_color.w;
-            wd.ClearValue.color.float32[3] = clear_color.w;
+            g_ClearValue.color.float32[0] = clear_color.x * clear_color.w;
+            g_ClearValue.color.float32[1] = clear_color.y * clear_color.w;
+            g_ClearValue.color.float32[2] = clear_color.z * clear_color.w;
+            g_ClearValue.color.float32[3] = clear_color.w;
 
-            rebuild_chain = renderFrame(wd, draw_data);
+            rebuild_chain = renderFrame(draw_data);
         }
     }
 }
@@ -133,34 +132,54 @@ const Frame = struct {
     RenderCompleteSemaphore: c.VkSemaphore,
 };
 
+const clear_enable = true;
+
+var g_Extent: c.VkExtent2D = .{ .width = 0, .height = 0 };
+
+var g_DebugReport: c.VkDebugReportCallbackEXT = null;
+
 var g_Instance: c.VkInstance = null;
 var g_PhysicalDevice: c.VkPhysicalDevice = null;
 var g_Device: c.VkDevice = null;
 var g_QueueFamily: u32 = std.math.maxInt(u32);
 var g_Queue: c.VkQueue = null;
-var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
-var g_Extent: c.VkExtent2D = .{ .width = 0, .height = 0 };
+
+// The window pipeline may uses a different VkRenderPass
+// than the one passed in ImGui_ImplVulkan_InitInfo
+var g_Pipeline: c.VkPipeline = null;
+var g_Swapchain: c.VkSwapchainKHR = null;
+var g_Surface: c.VkSurfaceKHR = null;
+var g_SurfaceFormat: c.VkSurfaceFormatKHR = .{ .format = 0, .colorSpace = 0 };
+var g_PresentMode: c.VkPresentModeKHR = c.VK_PRESENT_MODE_MAX_ENUM_KHR;
+var g_RenderPass: c.VkRenderPass = null;
+var g_ClearValue: c.VkClearValue = undefined;
+
+// Current frame being rendered to (0 <= FrameIndex < FrameInFlightCount)
+var g_FrameIndex: u32 = 0;
+
+// Current set of swapchain wait semaphores we're using (needs to be distinct from per frame data)
+var g_SemaphoreIndex: u32 = 0;
 
 var g_Frames: []Frame = &.{};
 
-var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
-    .Width = 0,
-    .Height = 0,
-    .Swapchain = null,
-    .Surface = null,
-    .SurfaceFormat = .{ .format = 0, .colorSpace = 0 },
-    .PresentMode = c.VK_PRESENT_MODE_MAX_ENUM_KHR,
-    .RenderPass = null,
-    .Pipeline = null,
-    .ClearEnable = true,
-    .ClearValue = undefined,
-    .FrameIndex = 0,
-    .ImageCount = 0,
-    .SemaphoreIndex = 0,
-    .Frames = null,
-    .FrameSemaphores = null,
-};
+// var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
+//     .Width = 0,
+//     .Height = 0,
+//     .Swapchain = null,
+//     .Surface = null,
+//     .SurfaceFormat = .{ .format = 0, .colorSpace = 0 },
+//     .PresentMode = c.VK_PRESENT_MODE_MAX_ENUM_KHR,
+//     .RenderPass = null,
+//     .Pipeline = null,
+//     .ClearEnable = false,
+//     .ClearValue = undefined,
+//     .FrameIndex = 0,
+//     .ImageCount = 0,
+//     .SemaphoreIndex = 0,
+//     .Frames = null,
+//     .FrameSemaphores = null,
+// };
 
 fn resizeSwapchain(window: glfw.Window) !void {
     const size = try window.getFramebufferSize();
@@ -170,7 +189,7 @@ fn resizeSwapchain(window: glfw.Window) !void {
 
         try createOrResizeVulkanWindow(size);
 
-        g_MainWindowData.FrameIndex = 0;
+        g_FrameIndex = 0;
     }
 }
 
@@ -178,12 +197,10 @@ fn resizeSwapchain(window: glfw.Window) !void {
 // framebuffers, window command buffers
 //                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
 fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
-    const wd = &g_MainWindowData;
-
     var err: c.VkResult = undefined;
 
-    var old_swapchain = wd.Swapchain;
-    wd.Swapchain = null;
+    var old_swapchain = g_Swapchain;
+    g_Swapchain = null;
 
     err = c.vkDeviceWaitIdle(g_Device);
     c.vkErr(err);
@@ -191,23 +208,19 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
     destroyFrames(g_Frames);
     g_Frames = &.{};
 
-    if (wd.RenderPass != null)
-        c.vkDestroyRenderPass(g_Device, wd.RenderPass, null);
-    if (wd.Pipeline != null)
-        c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
-
-    // if (min_image_count == 0)
-    //   min_image_count =
-    //       ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(wd.PresentMode);
+    if (g_RenderPass != null)
+        c.vkDestroyRenderPass(g_Device, g_RenderPass, null);
+    if (g_Pipeline != null)
+        c.vkDestroyPipeline(g_Device, g_Pipeline, null);
 
     // Create Swapchain
     {
         var info = c.VkSwapchainCreateInfoKHR{
             .sType = c.VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
-            .surface = wd.Surface,
+            .surface = g_Surface,
             .minImageCount = min_image_count,
-            .imageFormat = wd.SurfaceFormat.format,
-            .imageColorSpace = wd.SurfaceFormat.colorSpace,
+            .imageFormat = g_SurfaceFormat.format,
+            .imageColorSpace = g_SurfaceFormat.colorSpace,
             .imageArrayLayers = 1,
             .imageUsage = c.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
 
@@ -216,7 +229,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
 
             .preTransform = c.VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR,
             .compositeAlpha = c.VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
-            .presentMode = wd.PresentMode,
+            .presentMode = g_PresentMode,
             .clipped = c.VK_TRUE,
             .oldSwapchain = old_swapchain,
 
@@ -228,7 +241,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         };
 
         var cap: c.VkSurfaceCapabilitiesKHR = undefined;
-        err = c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_PhysicalDevice, wd.Surface, &cap);
+        err = c.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(g_PhysicalDevice, g_Surface, &cap);
         c.vkErr(err);
 
         if (info.minImageCount < cap.minImageCount) {
@@ -251,18 +264,18 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
             g_Extent.height = cap.currentExtent.height;
         }
 
-        err = c.vkCreateSwapchainKHR(g_Device, &info, null, &wd.Swapchain);
+        err = c.vkCreateSwapchainKHR(g_Device, &info, null, &g_Swapchain);
         c.vkErr(err);
 
         var image_count: u32 = 0;
-        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &image_count, null);
+        err = c.vkGetSwapchainImagesKHR(g_Device, g_Swapchain, &image_count, null);
         c.vkErr(err);
 
         var backbuffers: [16]c.VkImage = undefined;
         assert(image_count >= min_image_count);
         assert(image_count < backbuffers.len);
 
-        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &image_count, &backbuffers);
+        err = c.vkGetSwapchainImagesKHR(g_Device, g_Swapchain, &image_count, &backbuffers);
         c.vkErr(err);
 
         assert(g_Frames.len == 0);
@@ -286,9 +299,9 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
     // Create the Render Pass
     {
         var attachment = c.VkAttachmentDescription{
-            .format = wd.SurfaceFormat.format,
+            .format = g_SurfaceFormat.format,
             .samples = c.VK_SAMPLE_COUNT_1_BIT,
-            .loadOp = if (wd.ClearEnable) c.VK_ATTACHMENT_LOAD_OP_CLEAR else c.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+            .loadOp = if (clear_enable) c.VK_ATTACHMENT_LOAD_OP_CLEAR else c.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .storeOp = c.VK_ATTACHMENT_STORE_OP_STORE,
             .stencilLoadOp = c.VK_ATTACHMENT_LOAD_OP_DONT_CARE,
             .stencilStoreOp = c.VK_ATTACHMENT_STORE_OP_DONT_CARE,
@@ -335,7 +348,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
             .flags = 0,
         };
 
-        err = c.vkCreateRenderPass(g_Device, &info, null, &wd.RenderPass);
+        err = c.vkCreateRenderPass(g_Device, &info, null, &g_RenderPass);
         c.vkErr(err);
 
         // We do not create a pipeline by default as this is also used by examples'
@@ -358,7 +371,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         var info = c.VkImageViewCreateInfo{
             .sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .viewType = c.VK_IMAGE_VIEW_TYPE_2D,
-            .format = wd.SurfaceFormat.format,
+            .format = g_SurfaceFormat.format,
             .components = .{
                 .r = c.VK_COMPONENT_SWIZZLE_R,
                 .g = c.VK_COMPONENT_SWIZZLE_G,
@@ -385,7 +398,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         var attachment: [1]c.VkImageView = undefined;
         var info = c.VkFramebufferCreateInfo{
             .sType = c.VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-            .renderPass = wd.RenderPass,
+            .renderPass = g_RenderPass,
             .attachmentCount = 1,
             .pAttachments = &attachment,
             .width = g_Extent.width,
@@ -644,16 +657,14 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
         c.vkErr(err);
     }
 
-    const wd = &g_MainWindowData;
-
     {
         // Create Window Surface
-        err = try glfw.createWindowSurface(g_Instance, window, null, &wd.Surface);
+        err = try glfw.createWindowSurface(g_Instance, window, null, &g_Surface);
         c.vkErr(err);
 
         // Check for WSI support
         var res: c.VkBool32 = undefined;
-        _ = c.vkGetPhysicalDeviceSurfaceSupportKHR(g_PhysicalDevice, g_QueueFamily, wd.Surface, &res);
+        _ = c.vkGetPhysicalDeviceSurfaceSupportKHR(g_PhysicalDevice, g_QueueFamily, g_Surface, &res);
         if (res != c.VK_TRUE) {
             @panic("Error no WSI support on physical device 0\n");
         }
@@ -663,9 +674,9 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
             c.VK_FORMAT_B8G8R8_UNORM,   c.VK_FORMAT_R8G8B8_UNORM,
         };
         const colorSpace = c.VK_COLORSPACE_SRGB_NONLINEAR_KHR;
-        wd.SurfaceFormat = c.ImGui_ImplVulkanH_SelectSurfaceFormat(
+        g_SurfaceFormat = c.ImGui_ImplVulkanH_SelectSurfaceFormat(
             g_PhysicalDevice,
-            wd.Surface,
+            g_Surface,
             &imageFormat,
             imageFormat.len,
             colorSpace,
@@ -675,7 +686,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
             c.VK_PRESENT_MODE_MAILBOX_KHR, c.VK_PRESENT_MODE_IMMEDIATE_KHR,
             c.VK_PRESENT_MODE_FIFO_KHR,
         };
-        wd.PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(g_PhysicalDevice, wd.Surface, &present_modes, present_modes.len);
+        g_PresentMode = c.ImGui_ImplVulkanH_SelectPresentMode(g_PhysicalDevice, g_Surface, &present_modes, present_modes.len);
 
         // Create SwapChain, RenderPass, Framebuffer, etc.
         try createOrResizeVulkanWindow(.{ .width = width, .height = height });
@@ -703,7 +714,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
             .Allocator = null,
             .CheckVkResultFn = c.vkErr,
         };
-        _ = c.ImGui_ImplVulkan_Init(&init_info, wd.RenderPass);
+        _ = c.ImGui_ImplVulkan_Init(&init_info, g_RenderPass);
     }
 
     // Load Fonts
@@ -730,7 +741,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
     // io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
     // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
     {
-        const frame = g_Frames[wd.FrameIndex];
+        const frame = g_Frames[g_FrameIndex];
 
         // Use any command queue
         const command_pool = frame.CommandPool;
@@ -773,16 +784,16 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
     }
 }
 
-fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
+fn renderFrame(draw_data: *c.ImDrawData) bool {
     var err: c.VkResult = undefined;
 
-    const semaphores = g_Frames[wd.SemaphoreIndex];
+    const semaphores = g_Frames[g_SemaphoreIndex];
     var image_acquired_semaphore = semaphores.ImageAcquiredSemaphore;
     var render_complete_semaphore = semaphores.RenderCompleteSemaphore;
 
     const U64_MAX = std.math.maxInt(u64);
 
-    err = c.vkAcquireNextImageKHR(g_Device, wd.Swapchain, U64_MAX, image_acquired_semaphore, null, &wd.FrameIndex);
+    err = c.vkAcquireNextImageKHR(g_Device, g_Swapchain, U64_MAX, image_acquired_semaphore, null, &g_FrameIndex);
 
     if (err == c.VK_ERROR_OUT_OF_DATE_KHR or err == c.VK_SUBOPTIMAL_KHR) {
         return true;
@@ -790,7 +801,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
 
     c.vkErr(err);
 
-    const fd = &g_Frames[wd.FrameIndex];
+    const fd = &g_Frames[g_FrameIndex];
 
     {
         // wait indefinitely instead of periodically checking
@@ -820,10 +831,10 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
         const extent = .{ .width = g_Extent.width, .height = g_Extent.height };
         var info = c.VkRenderPassBeginInfo{
             .sType = c.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
-            .renderPass = wd.RenderPass,
+            .renderPass = g_RenderPass,
             .framebuffer = fd.Framebuffer,
             .clearValueCount = 1,
-            .pClearValues = &wd.ClearValue,
+            .pClearValues = &g_ClearValue,
             .renderArea = .{
                 .extent = extent,
                 .offset = .{ .x = 0, .y = 0 },
@@ -866,8 +877,8 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
             .waitSemaphoreCount = 1,
             .pWaitSemaphores = &render_complete_semaphore,
             .swapchainCount = 1,
-            .pSwapchains = &wd.Swapchain,
-            .pImageIndices = &wd.FrameIndex,
+            .pSwapchains = &g_Swapchain,
+            .pImageIndices = &g_FrameIndex,
             .pNext = null,
             .pResults = null,
         };
@@ -882,7 +893,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
 
         // Now we can use the next set of semaphores
         const frame_count = cast(u32, g_Frames.len) catch @panic("bruh");
-        wd.SemaphoreIndex = (wd.SemaphoreIndex + 1) % frame_count;
+        g_SemaphoreIndex = (g_SemaphoreIndex + 1) % frame_count;
     }
 
     return false;
@@ -924,16 +935,15 @@ pub fn teardownVulkan() void {
     destroyFrames(g_Frames);
     g_Frames = &.{};
 
-    const wd = &g_MainWindowData;
-    c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
-    c.vkDestroyRenderPass(g_Device, wd.RenderPass, null);
-    c.vkDestroySwapchainKHR(g_Device, wd.Swapchain, null);
-    c.vkDestroySurfaceKHR(g_Instance, wd.Surface, null);
+    c.vkDestroyPipeline(g_Device, g_Pipeline, null);
+    c.vkDestroyRenderPass(g_Device, g_RenderPass, null);
+    c.vkDestroySwapchainKHR(g_Device, g_Swapchain, null);
+    c.vkDestroySurfaceKHR(g_Instance, g_Surface, null);
 
-    wd.Pipeline = null;
-    wd.RenderPass = null;
-    wd.Swapchain = null;
-    wd.Surface = null;
+    g_Pipeline = null;
+    g_RenderPass = null;
+    g_Swapchain = null;
+    g_Surface = null;
 
     c.vkDestroyDescriptorPool(g_Device, g_DescriptorPool, null);
 
