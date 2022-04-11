@@ -9,13 +9,13 @@ const ArrayList = std.ArrayList;
 const TodoItem = struct {
     is_done: bool = false,
     id: c_int,
-    name: ArrayList(u8) = ArrayList(u8).init(alloc.Global),
+    name: ArrayList(u8) = ArrayList(u8).init(alloc.Alloc),
 };
 
 // Globals are safe here, because we only run the GUI code on exactly one
 // thread.
 var next_id: c_int = 0;
-var items = ArrayList(TodoItem).init(alloc.Global);
+var items = ArrayList(TodoItem).init(alloc.Alloc);
 
 fn textCallback(data: [*c]c.ImGuiInputTextCallbackData) callconv(.C) c_int {
     const aligned_user_data = @alignCast(8, data.*.UserData);

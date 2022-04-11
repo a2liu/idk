@@ -279,7 +279,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         c.vkErr(err);
 
         assert(g_Frames.len == 0);
-        g_Frames = try alloc.Global.alloc(Frame, image_count);
+        g_Frames = try alloc.Alloc.alloc(Frame, image_count);
         for (g_Frames) |*frame, index| {
             frame.CommandPool = null;
             frame.CommandBuffer = null;
@@ -917,7 +917,7 @@ fn destroyFrames(frames: []Frame) void {
         frame.RenderCompleteSemaphore = null;
     }
 
-    alloc.Global.free(frames);
+    alloc.Alloc.free(frames);
 }
 
 pub fn teardownVulkan() void {

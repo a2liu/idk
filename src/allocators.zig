@@ -9,7 +9,7 @@ const ByteList = std.ArrayListAlignedUnmanaged([]u8, null);
 const GlobalAlloc = std.heap.GeneralPurposeAllocator(.{});
 
 var GlobalAllocator: GlobalAlloc = .{};
-pub const Global = GlobalAllocator.allocator();
+pub const Alloc = GlobalAllocator.allocator();
 pub const Pages = std.heap.page_allocator;
 
 const BumpState = struct {
@@ -155,7 +155,7 @@ pub const Temp = struct {
     }
 
     fn allocate(self: *Self, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        return bump.allocate(&self.mark, Global, len, ptr_align, len_align, ret_addr);
+        return bump.allocate(&self.mark, Alloc, len, ptr_align, len_align, ret_addr);
     }
 };
 
@@ -176,6 +176,6 @@ const FrameAlloc = struct {
     const free = Allocator.NoOpFree(GlobalAlloc).noOpFree;
 
     fn alloc(_: *GlobalAlloc, len: usize, ptr_align: u29, len_align: u29, ret_addr: usize) Allocator.Error![]u8 {
-        return bump.allocate(&mark, Global, len, ptr_align, len_align, ret_addr);
+        return bump.allocate(&mark, Alloc, len, ptr_align, len_align, ret_addr);
     }
 };
