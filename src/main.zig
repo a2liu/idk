@@ -10,7 +10,7 @@ const assert = std.debug.assert;
 const cast = std.math.cast;
 
 // This file mostly contains plumbing to get this app to work.
-const app_name = "Dear ImGui GLFW+Vulkan example";
+const app_name = "Project Triangle Strategy";
 const min_image_count = 3;
 
 pub fn main() !void {
