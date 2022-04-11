@@ -163,24 +163,6 @@ var g_SemaphoreIndex: u32 = 0;
 
 var g_Frames: []Frame = &.{};
 
-// var g_MainWindowData: c.ImGui_ImplVulkanH_Window = c.ImGui_ImplVulkanH_Window{
-//     .Width = 0,
-//     .Height = 0,
-//     .Swapchain = null,
-//     .Surface = null,
-//     .SurfaceFormat = .{ .format = 0, .colorSpace = 0 },
-//     .PresentMode = c.VK_PRESENT_MODE_MAX_ENUM_KHR,
-//     .RenderPass = null,
-//     .Pipeline = null,
-//     .ClearEnable = false,
-//     .ClearValue = undefined,
-//     .FrameIndex = 0,
-//     .ImageCount = 0,
-//     .SemaphoreIndex = 0,
-//     .Frames = null,
-//     .FrameSemaphores = null,
-// };
-
 fn resizeSwapchain(window: glfw.Window) !void {
     const size = try window.getFramebufferSize();
 
