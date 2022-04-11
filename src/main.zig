@@ -7,6 +7,7 @@ const c = @import("c.zig");
 const app = @import("app.zig");
 
 const assert = std.debug.assert;
+const cast = std.math.cast;
 
 // This file mostly contains plumbing to get this app to work.
 const app_name = "Dear ImGui GLFW+Vulkan example";
@@ -253,17 +254,19 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         err = c.vkCreateSwapchainKHR(g_Device, &info, null, &wd.Swapchain);
         c.vkErr(err);
 
-        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &wd.ImageCount, null);
+        var image_count: u32 = 0;
+        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &image_count, null);
         c.vkErr(err);
 
         var backbuffers: [16]c.VkImage = undefined;
-        assert(wd.ImageCount >= min_image_count);
-        assert(wd.ImageCount < backbuffers.len);
-        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &wd.ImageCount, &backbuffers);
+        assert(image_count >= min_image_count);
+        assert(image_count < backbuffers.len);
+
+        err = c.vkGetSwapchainImagesKHR(g_Device, wd.Swapchain, &image_count, &backbuffers);
         c.vkErr(err);
 
         assert(g_Frames.len == 0);
-        g_Frames = try alloc.Global.alloc(Frame, wd.ImageCount);
+        g_Frames = try alloc.Global.alloc(Frame, image_count);
         for (g_Frames) |*frame, index| {
             frame.CommandPool = null;
             frame.CommandBuffer = null;
@@ -457,7 +460,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
 
     {
         const glfw_ext = try glfw.getRequiredInstanceExtensions();
-        const count = std.math.cast(u32, glfw_ext.len) catch @panic("oof");
+        const count = cast(u32, glfw_ext.len) catch @panic("oof");
 
         const ext = try temp.alloc(c.str_z, count + 1);
         std.mem.copy(c.str_z, ext, glfw_ext.ptr[0..glfw_ext.len]);
@@ -543,7 +546,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
         for (queues) |queue, i| {
             const mask = queue.queueFlags & c.VK_QUEUE_GRAPHICS_BIT;
             if (mask != 0) {
-                break :queue_family std.math.cast(u32, i) catch @panic("rippo");
+                break :queue_family cast(u32, i) catch @panic("rippo");
             }
         }
 
@@ -695,7 +698,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
             .DescriptorPool = g_DescriptorPool,
             .Subpass = 0,
             .MinImageCount = min_image_count,
-            .ImageCount = wd.ImageCount,
+            .ImageCount = cast(u32, g_Frames.len) catch @panic("idk"),
             .MSAASamples = c.VK_SAMPLE_COUNT_1_BIT,
             .Allocator = null,
             .CheckVkResultFn = c.vkErr,
@@ -878,7 +881,8 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
         c.vkErr(err);
 
         // Now we can use the next set of semaphores
-        wd.SemaphoreIndex = (wd.SemaphoreIndex + 1) % wd.ImageCount;
+        const frame_count = cast(u32, g_Frames.len) catch @panic("bruh");
+        wd.SemaphoreIndex = (wd.SemaphoreIndex + 1) % frame_count;
     }
 
     return false;
