@@ -182,24 +182,6 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
 
     var err: c.VkResult = undefined;
 
-    if (refactor_flag()) {
-        c.ImGui_ImplVulkanH_CreateOrResizeWindow(
-            g_Instance,
-            g_PhysicalDevice,
-            g_Device,
-            wd,
-            g_QueueFamily,
-            null,
-            width,
-            height,
-            min_image_count,
-        );
-
-        return;
-    }
-
-    std.debug.print("rippo window\n", .{});
-
     var old_swapchain = wd.Swapchain;
     wd.Swapchain = null;
 
@@ -744,8 +726,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
     // io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f,
     // NULL, io.Fonts->GetGlyphRangesJapanese()); IM_ASSERT(font != NULL);
     {
-        const frame = wd.Frames[wd.FrameIndex];
-        // const frame = g_Frames[wd.FrameIndex];
+        const frame = g_Frames[wd.FrameIndex];
 
         // Use any command queue
         const command_pool = frame.CommandPool;
@@ -791,8 +772,7 @@ fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
 fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     var err: c.VkResult = undefined;
 
-    const semaphores = wd.FrameSemaphores[wd.SemaphoreIndex];
-    // const semaphores = g_Frames[wd.SemaphoreIndex];
+    const semaphores = g_Frames[wd.SemaphoreIndex];
     var image_acquired_semaphore = semaphores.ImageAcquiredSemaphore;
     var render_complete_semaphore = semaphores.RenderCompleteSemaphore;
 
@@ -806,8 +786,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
 
     c.vkErr(err);
 
-    const fd = &wd.Frames[wd.FrameIndex];
-    // const fd = &g_Frames[wd.FrameIndex];
+    const fd = &g_Frames[wd.FrameIndex];
 
     {
         // wait indefinitely instead of periodically checking
@@ -935,33 +914,24 @@ pub fn teardownVulkan() void {
     c.ImGui_ImplVulkan_Shutdown();
     c.ImGui_ImplGlfw_Shutdown();
 
-    zig_code: {
-        if (refactor_flag()) {
-            c.ImGui_ImplVulkanH_DestroyWindow(g_Instance, g_Device, &g_MainWindowData, null);
-            break :zig_code;
-        }
+    // FIXME: We could wait on the Queue if we had the queue in wd->
+    // (otherwise VulkanH functions can't use globals)
+    // vkQueueWaitIdle(bd->Queue);
+    _ = c.vkDeviceWaitIdle(g_Device);
 
-        std.debug.print("rippo\n", .{});
+    destroyFrames(g_Frames);
+    g_Frames = &.{};
 
-        // FIXME: We could wait on the Queue if we had the queue in wd->
-        // (otherwise VulkanH functions can't use globals)
-        // vkQueueWaitIdle(bd->Queue);
-        _ = c.vkDeviceWaitIdle(g_Device);
+    const wd = &g_MainWindowData;
+    c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
+    c.vkDestroyRenderPass(g_Device, wd.RenderPass, null);
+    c.vkDestroySwapchainKHR(g_Device, wd.Swapchain, null);
+    c.vkDestroySurfaceKHR(g_Instance, wd.Surface, null);
 
-        destroyFrames(g_Frames);
-        g_Frames = &.{};
-
-        const wd = &g_MainWindowData;
-        c.vkDestroyPipeline(g_Device, wd.Pipeline, null);
-        c.vkDestroyRenderPass(g_Device, wd.RenderPass, null);
-        c.vkDestroySwapchainKHR(g_Device, wd.Swapchain, null);
-        c.vkDestroySurfaceKHR(g_Instance, wd.Surface, null);
-
-        wd.Pipeline = null;
-        wd.RenderPass = null;
-        wd.Swapchain = null;
-        wd.Surface = null;
-    }
+    wd.Pipeline = null;
+    wd.RenderPass = null;
+    wd.Swapchain = null;
+    wd.Surface = null;
 
     c.vkDestroyDescriptorPool(g_Device, g_DescriptorPool, null);
 
@@ -979,11 +949,4 @@ pub fn teardownVulkan() void {
 
     c.vkDestroyDevice(g_Device, null);
     c.vkDestroyInstance(g_Instance, null);
-}
-
-// Zig does quite a bit of typechecking-level laziness, and sometimes we want to
-// force it to compile all branches, even if one of them statically will never
-// run.
-pub fn refactor_flag() bool {
-    return true;
 }
