@@ -1,5 +1,5 @@
 const std = @import("std");
-const alloc = @import("allocators.zig");
+const liu = @import("liu");
 const gui = @import("gui.zig");
 const c = @import("c.zig");
 
@@ -9,13 +9,13 @@ const ArrayList = std.ArrayList;
 const TodoItem = struct {
     is_done: bool = false,
     id: c_int,
-    name: ArrayList(u8) = ArrayList(u8).init(alloc.Alloc),
+    name: ArrayList(u8) = ArrayList(u8).init(liu.Alloc),
 };
 
 // Globals are safe here, because we only run the GUI code on exactly one
 // thread.
 var next_id: c_int = 0;
-var items = ArrayList(TodoItem).init(alloc.Alloc);
+var items = ArrayList(TodoItem).init(liu.Alloc);
 
 fn textCallback(data: [*c]c.ImGuiInputTextCallbackData) callconv(.C) c_int {
     const aligned_user_data = @alignCast(8, data.*.UserData);

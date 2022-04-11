@@ -1,9 +1,9 @@
 const std = @import("std");
-const alloc = @import("allocators.zig");
+const liu = @import("liu");
 const c = @import("c.zig");
 
 pub fn Text(comptime format: []const u8, args: anytype) void {
-    var _temp = alloc.Temp.init();
+    var _temp = liu.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
 

@@ -1,5 +1,5 @@
 const std = @import("std");
-const alloc = @import("allocators.zig");
+const liu = @import("liu");
 const glfw = @import("glfw");
 const util = @import("util.zig");
 const gui = @import("gui.zig");
@@ -63,7 +63,7 @@ pub fn main() !void {
         //      on those two flags.
         try glfw.pollEvents();
 
-        alloc.clearFrameAllocator();
+        liu.clearFrameAllocator();
 
         if (rebuild_chain) {
             try resizeSwapchain(window);
@@ -279,7 +279,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         c.vkErr(err);
 
         assert(g_Frames.len == 0);
-        g_Frames = try alloc.Alloc.alloc(Frame, image_count);
+        g_Frames = try liu.Alloc.alloc(Frame, image_count);
         for (g_Frames) |*frame, index| {
             frame.CommandPool = null;
             frame.CommandBuffer = null;
@@ -465,7 +465,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
 // All the ImGui_ImplVulkanH_XXX structures/functions are optional helpers used
 // by the demo. Your real engine/app may not use them.
 fn setupVulkan(window: glfw.Window, width: u32, height: u32) !void {
-    var _temp = alloc.Temp.init();
+    var _temp = liu.Temp.init();
     const temp = _temp.allocator();
     defer _temp.deinit();
 
@@ -917,7 +917,7 @@ fn destroyFrames(frames: []Frame) void {
         frame.RenderCompleteSemaphore = null;
     }
 
-    alloc.Alloc.free(frames);
+    liu.Alloc.free(frames);
 }
 
 pub fn teardownVulkan() void {

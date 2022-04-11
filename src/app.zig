@@ -1,5 +1,5 @@
 const std = @import("std");
-const alloc = @import("allocators.zig");
+const liu = @import("liu");
 const glfw = @import("glfw");
 const gui = @import("gui.zig");
 const c = @import("c.zig");
