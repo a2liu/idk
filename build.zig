@@ -45,7 +45,6 @@ pub fn build(b: *std.build.Builder) void {
     exe.linkLibCpp();
     exe.linkSystemLibrary("vulkan");
 
-    exe.addIncludeDir("src/include");
     exe.addIncludeDir("libs/imgui/include");
 
     const files = .{
