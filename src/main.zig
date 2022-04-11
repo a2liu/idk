@@ -6,6 +6,12 @@ const gui = @import("gui.zig");
 const c = @import("c.zig");
 const app = @import("app.zig");
 
+// TODO
+// 1. swapchain abstraction from the zig example
+// 2. Create second pipeline
+//
+//                          - Albert Liu, Apr 11, 2022 Mon 01:09 EDT
+
 const assert = std.debug.assert;
 const cast = std.math.cast;
 
@@ -66,7 +72,15 @@ pub fn main() !void {
         liu.clearFrameAllocator();
 
         if (rebuild_chain) {
-            try resizeSwapchain(window);
+            const size = try window.getFramebufferSize();
+
+            if (size.width > 0 and size.height > 0) {
+                c.ImGui_ImplVulkan_SetMinImageCount(min_image_count);
+
+                try createOrResizeVulkanWindow(size);
+
+                g_FrameIndex = 0;
+            }
 
             rebuild_chain = false;
         }
@@ -163,21 +177,6 @@ var g_SemaphoreIndex: u32 = 0;
 
 var g_Frames: []Frame = &.{};
 
-fn resizeSwapchain(window: glfw.Window) !void {
-    const size = try window.getFramebufferSize();
-
-    if (size.width > 0 and size.height > 0) {
-        c.ImGui_ImplVulkan_SetMinImageCount(min_image_count);
-
-        try createOrResizeVulkanWindow(size);
-
-        g_FrameIndex = 0;
-    }
-}
-
-// TODO utility for creating vulkan swapchain, render pass, image views,
-// framebuffers, window command buffers
-//                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
 fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
     var err: c.VkResult = undefined;
 
