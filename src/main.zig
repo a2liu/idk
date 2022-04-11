@@ -139,6 +139,7 @@ var g_QueueFamily: u32 = std.math.maxInt(u32);
 var g_Queue: c.VkQueue = null;
 var g_DebugReport: c.VkDebugReportCallbackEXT = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
+var g_Extent: c.VkExtent2D = .{ .width = 0, .height = 0 };
 
 var g_Frames: []Frame = &.{};
 
@@ -177,8 +178,6 @@ fn resizeSwapchain(window: glfw.Window) !void {
 //                      - Albert Liu, Apr 08, 2022 Fri 00:32 EDT
 fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
     const wd = &g_MainWindowData;
-    const width = @bitCast(c_int, size.width);
-    const height = @bitCast(c_int, size.height);
 
     var err: c.VkResult = undefined;
 
@@ -239,14 +238,16 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
 
         if (cap.currentExtent.width == 0xffffffff) {
             info.imageExtent.width = size.width;
-            wd.Width = width;
             info.imageExtent.height = size.height;
-            wd.Height = height;
+
+            g_Extent.width = size.width;
+            g_Extent.height = size.height;
         } else {
             info.imageExtent.width = cap.currentExtent.width;
-            wd.Width = @bitCast(c_int, cap.currentExtent.width);
             info.imageExtent.height = cap.currentExtent.height;
-            wd.Height = @bitCast(c_int, cap.currentExtent.height);
+
+            g_Extent.width = cap.currentExtent.width;
+            g_Extent.height = cap.currentExtent.height;
         }
 
         err = c.vkCreateSwapchainKHR(g_Device, &info, null, &wd.Swapchain);
@@ -384,8 +385,8 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
             .renderPass = wd.RenderPass,
             .attachmentCount = 1,
             .pAttachments = &attachment,
-            .width = @bitCast(u32, wd.Width),
-            .height = @bitCast(u32, wd.Height),
+            .width = g_Extent.width,
+            .height = g_Extent.height,
             .layers = 1,
             .flags = 0,
             .pNext = null,
@@ -813,10 +814,7 @@ fn renderFrame(wd: *c.ImGui_ImplVulkanH_Window, draw_data: *c.ImDrawData) bool {
     }
 
     {
-        const extent = .{
-            .width = std.math.cast(u32, wd.Width) catch @panic("whoops"),
-            .height = std.math.cast(u32, wd.Height) catch @panic("whoops"),
-        };
+        const extent = .{ .width = g_Extent.width, .height = g_Extent.height };
         var info = c.VkRenderPassBeginInfo{
             .sType = c.VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
             .renderPass = wd.RenderPass,
