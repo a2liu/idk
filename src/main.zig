@@ -2,7 +2,6 @@ const std = @import("std");
 const liu = @import("liu");
 const glfw = @import("glfw");
 const util = @import("util.zig");
-const gui = @import("gui.zig");
 const c = @import("c.zig");
 const app = @import("app.zig");
 
