@@ -358,7 +358,6 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         // wd->RenderPass, VK_SAMPLE_COUNT_1_BIT, &wd->Pipeline, bd->Subpass);
     }
 
-    // Create The Image Views
     {
         const image_range = c.VkImageSubresourceRange{
             .aspectMask = c.VK_IMAGE_ASPECT_COLOR_BIT,
@@ -368,7 +367,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
             .layerCount = 1,
         };
 
-        var info = c.VkImageViewCreateInfo{
+        var create_image_view = c.VkImageViewCreateInfo{
             .sType = c.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
             .viewType = c.VK_IMAGE_VIEW_TYPE_2D,
             .format = g_SurfaceFormat.format,
@@ -386,14 +385,14 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         };
 
         for (g_Frames) |*frame| {
-            info.image = frame.Backbuffer;
+            create_image_view.image = frame.Backbuffer;
 
-            err = c.vkCreateImageView(g_Device, &info, null, &frame.BackbufferView);
+            // Create The Image Views
+            err = c.vkCreateImageView(g_Device, &create_image_view, null, &frame.BackbufferView);
             c.vkErr(err);
         }
     }
 
-    // Create Framebuffer
     {
         var attachment: [1]c.VkImageView = undefined;
         var info = c.VkFramebufferCreateInfo{
@@ -411,6 +410,7 @@ fn createOrResizeVulkanWindow(size: glfw.Window.Size) !void {
         for (g_Frames) |*frame| {
             attachment[0] = frame.BackbufferView;
 
+            // Create Framebuffer
             err = c.vkCreateFramebuffer(g_Device, &info, null, &frame.Framebuffer);
             c.vkErr(err);
         }
