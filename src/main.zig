@@ -161,11 +161,13 @@ var g_DescriptorPool: c.VkDescriptorPool = null;
 // The window pipeline may uses a different VkRenderPass
 // than the one passed in ImGui_ImplVulkan_InitInfo
 var g_Pipeline: c.VkPipeline = null;
+
 var g_Swapchain: c.VkSwapchainKHR = null;
 var g_Surface: c.VkSurfaceKHR = null;
 var g_SurfaceFormat: c.VkSurfaceFormatKHR = .{ .format = 0, .colorSpace = 0 };
 var g_PresentMode: c.VkPresentModeKHR = c.VK_PRESENT_MODE_MAX_ENUM_KHR;
 var g_RenderPass: c.VkRenderPass = null;
+
 var g_ClearValue: c.VkClearValue = undefined;
 
 // Current frame being rendered to (0 <= FrameIndex < FrameInFlightCount)
