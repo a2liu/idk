@@ -158,15 +158,14 @@ var g_QueueFamily: u32 = std.math.maxInt(u32);
 var g_Queue: c.VkQueue = null;
 var g_DescriptorPool: c.VkDescriptorPool = null;
 
-// The window pipeline may uses a different VkRenderPass
-// than the one passed in ImGui_ImplVulkan_InitInfo
-var g_Pipeline: c.VkPipeline = null;
-
 var g_Swapchain: c.VkSwapchainKHR = null;
 var g_Surface: c.VkSurfaceKHR = null;
 var g_SurfaceFormat: c.VkSurfaceFormatKHR = .{ .format = 0, .colorSpace = 0 };
 var g_PresentMode: c.VkPresentModeKHR = c.VK_PRESENT_MODE_MAX_ENUM_KHR;
 var g_RenderPass: c.VkRenderPass = null;
+
+// This is unused by the imgui vulkan stuff right now.
+var g_Pipeline: c.VkPipeline = null;
 
 var g_ClearValue: c.VkClearValue = undefined;
 
